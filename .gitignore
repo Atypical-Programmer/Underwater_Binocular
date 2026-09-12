@@ -1,0 +1,115 @@
+# ------------------------------
+# Python
+# ------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+
+# Local Python environments
+.venv/
+venv/
+env/
+ENV/
+.conda/
+
+# ------------------------------
+# IDE / operating system
+# ------------------------------
+.idea/
+.vscode/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.code-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# ------------------------------
+# Raw recordings and calibration intermediates
+# ------------------------------
+*.svo
+*.svo2
+*.h5
+
+# Calibration inspection images are reproducible from calibration data.
+Calibration/**/rect_line_*.png
+
+# ------------------------------
+# Experiment outputs
+# ------------------------------
+/output/
+*.mp4
+*.avi
+*.mov
+*.npy
+*.ply
+*.area
+*.db
+
+# ------------------------------
+# CMake / MSVC build products
+# ------------------------------
+**/build/
+**/cmake-build-*/
+**/CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+Makefile
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sdf
+*.obj
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.tlog
+*.lastbuildstate
+
+# ------------------------------
+# Local dependency checkouts/caches
+# Keep SLAM/vcpkg.json under version control; bootstrap vcpkg separately.
+# ------------------------------
+SLAM/vcpkg/
+SLAM/vcpkg_installed/
+SLAM/Pangolin/
+
+# ORBvoc is a large generated/downloaded vocabulary, not project source.
+SLAM/ORB_SLAM3/Vocabulary/ORBvoc.txt
+SLAM/ORB_SLAM3/Vocabulary/ORBvoc.txt.tar.gz
+
+# Upstream ORB-SLAM3 example/evaluation datasets are not required by this
+# project's SVO2 runner. Keep the source code and custom example intact.
+SLAM/ORB_SLAM3/Examples_old/
+SLAM/ORB_SLAM3/Examples/Monocular-Inertial/TUM_IMU/
+SLAM/ORB_SLAM3/Examples/Stereo-Inertial/TUM_IMU/
+SLAM/ORB_SLAM3/evaluation/
+
+# Temporary files created by interrupted exports.
+*.tmp
+*.part
+*.bak

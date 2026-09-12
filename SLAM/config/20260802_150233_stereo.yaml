@@ -1,0 +1,57 @@
+%YAML:1.0
+
+# Generated only from Calibration/标定结果/camera_intrinsics.yaml and
+# Calibration/标定结果/stereo_extrinsics.yaml. No SVO calibration is read.
+# Input images are resized uniformly before ORB-SLAM3.
+File.version: "1.0"
+Camera.type: "PinHole"
+
+Camera1.fx: 1443.326338
+Camera1.fy: 1441.541002
+Camera1.cx: 967.033878
+Camera1.cy: 540.469238
+Camera1.k1: 0.3151847
+Camera1.k2: -0.7495814
+Camera1.p1: 0.002129304
+Camera1.p2: 0.005759798
+Camera1.k3: 6.688496
+
+Camera2.fx: 1449.830254
+Camera2.fy: 1448.097563
+Camera2.cx: 975.331674
+Camera2.cy: 514.232843
+Camera2.k1: 0.3023032
+Camera2.k2: -0.1692313
+Camera2.p1: 0.001685104
+Camera2.p2: 0.01069086
+Camera2.k3: 1.944058
+
+Camera.width: 1920
+Camera.height: 1080
+Camera.fps: 30
+Camera.RGB: 0
+
+Stereo.ThDepth: 60.0
+Stereo.T_c1_c2: !!opencv-matrix
+  rows: 4
+  cols: 4
+  dt: f
+  data: [0.999968008,-0.00548930265,-0.0058180891,0.122536078641,0.0054886443,0.999984929,-0.000129116717,0.000506711025453,0.00581871018,9.71791651e-05,0.999983066,-0.0171411990047,0,0,0,1]
+
+ORBextractor.nFeatures: 1500
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500.0
+Viewer.imageViewScale: 1.0

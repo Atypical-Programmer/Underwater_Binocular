@@ -1,0 +1,22 @@
+{
+  "name": "orbslam3-windows",
+  "version-string": "1.0",
+  "dependencies": [
+    "eigen3",
+    "boost-algorithm",
+    "boost-serialization",
+    "openssl",
+    {
+      "name": "opencv4",
+      "default-features": false,
+      "features": [
+        "calib3d",
+        "highgui"
+      ]
+    },
+    {
+      "name": "pangolin",
+      "default-features": false
+    }
+  ]
+}

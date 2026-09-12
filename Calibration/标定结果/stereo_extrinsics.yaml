@@ -1,0 +1,10 @@
+%YAML:1.0
+---
+baseline: 122.4352  # unit: mm
+reprojection_error: 0.225048  # unit: pixel
+R:
+  - [ 9.99968008e-01, 5.48864430e-03, 5.81871018e-03 ]
+  - [ -5.48930265e-03, 9.99984929e-01, 9.71791651e-05 ]
+  - [ -5.81808910e-03, -1.29116717e-04, 9.99983066e-01 ]
+T: [ -122.4352, 0.1676, 17.8539 ]  # unit: mm
+scale_error_percent: 2.0293  # relative to 120mm nominal baseline
