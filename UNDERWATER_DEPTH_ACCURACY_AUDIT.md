@@ -5,13 +5,35 @@
 
 ## 结论先行
 
-本次审计的最终判定是 **B：当前结果在内部是自洽的，但没有独立绝对真值，不能宣称绝对测距精度已经验证**。
+本次审计的最终判定是 **B2：当前结果在内部是自洽的，但 calibration provenance unknown、没有独立绝对真值，不能宣称绝对测距精度已经验证**。
 
 1. 仓库中约 `2.20–2.25 m` 的结果来自 custom 标定下的经验性针孔/立体模型；它与 custom SGBM 和 ZED `MEASURE.DEPTH` 的输出相互吻合。
 2. 没有找到水下已知距离、量尺/激光、带已知尺度的目标、相机到目标的独立测量，或者带水槽/舷窗/玻璃信息的标定记录。因此，不能从现有仓库证明 `2.20–2.25 m` 是绝对物理距离，也不能证明它已经正确吸收了折射。
 3. **不应把当前的 `2.20–2.25 m` 自动再乘 `1.333`。** `n·Z` 是本审计中明确计算的候选模型，不是由现有证据确认的修正。若 `2.2 m` 已经是水下/舷窗条件下的有效标定结果，再乘一次会明显过校正；若它是空气针孔距离，也不能仅凭一个全局 `n` 得到严格的平板舷窗模型。
 4. OpenCV `P/Q`、`fB/d`、disparity `/16` 和“只做一次 rectification”的实现检查均通过；这些通过项只能证明内部计算链路一致，不能替代绝对真值。
 5. 当前最稳妥的工程表述是：**继续使用 custom 标定的 `Z3 = f_custom·B_custom/d_custom` 作为未经绝对真值验证的 operational depth；同时把绝对精度标为未定，并禁止默认乘 `n=1.333`。**
+
+第二轮审计把 verdict 细分为 **B2**：内部几何链路通过，但 custom calibration 的介质/housing provenance 本身也是 unknown，且没有独立绝对 GT。
+
+### Executive questions
+
+- **Q1：当前代码实现的 `fB/d` 是否正确？——CONDITIONAL YES。** 在同一套 rectified 坐标、同一 `P/Q`/baseline 单位和 `/16` disparity 下，custom `fB/d` 与 OpenCV Q 一致，alpha=0/1 对同一 raw correspondence 也保持深度不变；这证明实现几何自洽，不证明标定物理尺度正确。
+- **Q2：当前 custom depth `2.2 m` 是否应乘 `1.333`？——NOT JUSTIFIED。** `2.2×1.333≈2.93 m` 只是 H1 候选；既没有 measured flat-port 参数，也没有证据支持一个全局乘法。
+- **Q3：`2.2 m` 是否已被证明是绝对物理距离？——NO。** 仓库没有 independent metric GT，且 calibration medium/housing provenance unknown。
+
+### Calibration-provenance decision tree
+
+```text
+IF custom calibration was performed underwater with the same housing
+and a correctly scaled metric target:
+    extra ×1.333 is almost certainly double-counting;
+    remaining question is non-central/refractive model bias.
+ELSE IF custom calibration was performed in air:
+    current 2.2 m is not validated underwater metric depth;
+    a global ×1.333 is still not a rigorous flat-port solution.
+ELSE:
+    provenance unknown; H0/H1 cannot be closed; treat current result as B2/H2.
+```
 
 本报告不把仓库已有的“2.2 m 已经包含折射”等结论当作前提，而是重新追踪代码、标定参数、SVO 图像和 100 帧实验结果。
 
@@ -161,12 +183,25 @@ custom OpenCV `stereoRectify` 的 `T` 和 `P/Q` 在本仓库中以 mm 输入/输
 | custom rectified `abs(P2[0,3]/P2[0,0])` | `123.730222800 mm` |
 | `Tz` | `17.853900 mm` |
 
+本报告以后严格使用以下名称，避免把 `abs(Tx)` 泛称为 baseline：
+
+```text
+B_nominal  = 120.000000 mm       # 文件注释/官方产品 nominal context
+B_x        = |Tx| = 122.435200 mm # 标定文件声明的 x 分量
+B_3D       = ||T|| = 123.730223 mm
+B_rectified= |P2[0,3]/P2[0,0]| = 123.730223 mm
+```
+
+ZED 2i 产品资料的 nominal baseline 也是约 `120 mm`（[Stereolabs ZED 2i datasheet](https://support.stereolabs.com/hc/en-us/article_attachments/27901419901463)）；这只是产品规格背景，不是本台相机/当前 housing 的 independent metric GT。
+
 相对差异：
 
 - 声明值相对 nominal：`+2.029333%`，与 YAML 的 `scale_error_percent` 一致；
 - `||T||`/P2 baseline 相对 nominal：`+3.108519%`；
 - `||T||`/P2 baseline 相对声明的 `122.4352 mm`：`+1.057721%`；
 - `Tz/||T|| = 0.144297`，source translation 的 x 轴与 norm 并不相同。
+
+`Tz/B_3D≈14.43%` 对应 source translation 的约 `8.30°` 偏离 x 轴。官方 ZED 2i 资料只给约 `120 mm` 产品 baseline，没有给当前设备安装姿态、housing 光学轴或 `Tz` 的允许范围；因此本值的当前分类是 **physically plausible in magnitude but unidentifiable as a mechanical/housing quantity**，不能说是折射吸收，也没有足够证据判为机械异常。
 
 实际 `P2` 检查为：
 
@@ -193,9 +228,9 @@ ORB-SLAM3 的 `SLAM/ORB_SLAM3/src/Settings.cc:485-518` 又对 `Tlr_` 求 inverse
 
 以下统计来自前 100 帧；每个区域先对每帧有效像素取中位数，再对帧中位数统计。`mean/std/P05/P95` 因而描述帧间结果，不是全图每一个像素的 pooled distribution。
 
-### 5.1 相应 optical center 区域
+### 5.1 native/custom optical-center neighborhoods（不是同一物理 ray）
 
-native 和 custom 分别使用其自己 rectified 坐标中的 optical center；这两个中心不是同一 raw 像素射线，所以该表用于观察数量级和模型关系，不能当作 GT 对照。
+native 和 custom 分别使用各自 rectified 坐标中的 optical-center neighborhood；这两个 neighborhood 不是同一个 raw pixel、不是同一个 physical ray。该表只用于观察数量级和模型关系，不能当作 GT 对照，也不应称作 corresponding optical center。
 
 | 模型 | median (m) | mean (m) | std (m) | P05 (m) | P95 (m) | 有效帧 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -211,7 +246,7 @@ native 和 custom 分别使用其自己 rectified 坐标中的 optical center；
 | `Z3/Z2` | 0.820802 | 0.842930 | 0.805713 | 0.836006 |
 | `Z3/Z1` | 1.094129 | — | — | — |
 
-`Z3/Z2` 明显不是 1；但由于两套 rectified 图像坐标、disparity 和有效光线不同，这只能说明“不能拿 native disparity 直接解释 custom 结果”，不能单独证明 custom 或 native 哪一套是绝对正确的。
+上述首轮表的数值来自 100 帧统计；第二轮修正了 frame-ID 对齐后，image-center、central-40% 和两个 optical-center neighborhoods 的 `Z3/Z2` 中位数分别为 `0.801468`、`0.833315`、`0.820802`，有效配对帧数分别为 `95`、`100`、`100`。`Z3/Z2` 明显不是 1；但由于两套 rectified 图像坐标、disparity 和有效光线不同，这只能说明“不能拿 native disparity 直接解释 custom 结果”，不能单独证明 custom 或 native 哪一套是绝对正确的。
 
 ### 5.2 同一输出图像中心与中央 40% 区域
 
@@ -248,16 +283,14 @@ alpha=1 时：
 1. 直接公式 `f·B/d`；
 2. `cv2.reprojectImageTo3D(disparity, Q)[2]`。
 
-custom Q 结果由 mm 除以 `1000` 转为 m；native Q 的长度单位本身是 m。100 帧抽样比较得到：
+custom Q 结果由 mm 除以 `1000` 转为 m；native diagnostic Q 的长度单位是 m。第二轮把两者严格分开报告，100 帧各抽取 `500,000` 个样本：
 
-- Q 样本数：`1,000,000`；
-- 最大绝对差：`7.75146485e-06 m`；
-- 平均绝对差：`7.0247108e-08 m`；
-- 最大相对差：`1.1916429e-07`；
-- 平均相对差：`3.22152e-08`；
-- status：`PASS`。
+| 分支 | Q 来源 | 样本数 | 最大绝对差 (m) | 最大相对差 | 状态 |
+|---|---|---:|---:|---:|---|
+| native | 由直接读取的 SDK rectified P-like 参数生成的 diagnostic Q | 500,000 | `7.62939453e-06` | `1.1916429e-07` | PASS（非独立 SDK-Q 验证） |
+| custom | OpenCV `stereoRectify` 生成的 Q | 500,000 | `7.75146485e-06` | `1.1878576e-07` | PASS（独立实现一致性检查） |
 
-此外，`Q[3,2]` 与 `1/B` 的关系、`P2[0,3] + fB = 0` 的关系以及 custom Q 的 mm→m 量纲转换均通过脚本断言。这个结果支持“Q 和公式没有单位/符号级别的明显 bug”，不支持“标定的绝对尺度已被验证”。
+native 的 Q 是诊断根据直接读取的 SDK rectified 投影参数构造的；当前 SDK API/记录中没有直接返回 native Q，因此 native 对比不能称为独立验证 ZED SDK Q。custom Q 是 OpenCV `stereoRectify` 的直接输出，验证强度更高。两者都支持“当前 Q/公式没有单位或符号级别的明显 bug”，都不支持“标定绝对尺度已被验证”。
 
 ## 7. disparity、resize、rectification 和 SLAM 复核
 
@@ -285,6 +318,8 @@ disparity = matcher.compute(left, right).astype(np.float32) / 16.0
 
 因此，当前审计没有发现“对已经 rectified 图像再次套 custom map”的重复校正路径。需要注意的是，`strict_compare_stereo_depth.py`/历史输出使用过 alpha=0，而本次 100 帧对照使用 alpha=1；这会改变 `f_rect`、principal point 和有效 ROI，不能跨 alpha 直接比较 depth 数值。
 
+custom SGBM 与 ZED custom `MEASURE.DEPTH` 不是两个 independent GT：两者共享 custom calibration 和底层 stereo images/几何。它们的约 2.2 m agreement 只能归入 Level 1/2 implementation/geometric consistency，不能升级为 Level 4 physical validation。
+
 ### 7.3 resize/scale
 
 - custom 100 帧审计在完整 `1920×1080` 上运行，未做隐藏 resize；
@@ -292,6 +327,16 @@ disparity = matcher.compute(left, right).astype(np.float32) / 16.0
 - alpha=0 full：`f=3635.4972 px`；
 - 已有 half-resolution alpha=0 输出为 `960×540`、`f=2140.9715 px`，属于另一套输出坐标系；
 - `debug_refractive_depth_check.py` 对 `--scale != 1` 直接报错，避免把未经同步缩放的 K/disparity 混进审计。
+
+### 7.5 同一 correspondence 的 alpha=0/1 invariance
+
+第二轮新诊断对相同 raw correspondence 分别调用 alpha=0/1 的 `undistortPoints(R,P)`，再计算各自的 `d` 和 `fB/d`，没有比较两个 alpha 下不同的 SGBM 像素。20 个分散帧（frame 0 + 19 个分散帧）全部有高质量匹配，共得到 863 个 correspondence：
+
+- alpha=0：`f=3635.497171961014 px`，`B=0.123730222799 m`；
+- alpha=1：`f=1423.952587176348 px`，`B=0.123730222799 m`；
+- `|Z_alpha0-Z_alpha1|/Z_alpha1` P95 `4.99e-15`，最大 `9.35e-15`，status `PASS`。
+
+因此 alpha=0/1 的 focal length 数值不能单独拿来判断 depth scale 变了约 2.5 倍；disparity 在同一 physical correspondence 上同步变化。详情见 [`alpha_invariance_check.json`](output/20260802_150233_flat_port_refractive_audit/alpha_invariance_check.json)。
 
 ### 7.4 ORB-SLAM3
 
@@ -310,16 +355,16 @@ disparity = matcher.compute(left, right).astype(np.float32) / 16.0
 
 这不是平板舷窗的完整光线模型。平板接口的严格模型还依赖相机中心到接口的距离 `h`、玻璃厚度、玻璃折射率、相机/接口两侧介质以及入射角；一个全局 `n` 只可能是特定几何下的近轴近似或经验缩放。
 
-### 8.2 近轴/精确 Snell sanity check
+### 8.2 对称单界面 Snell sanity check（不是 general per-pixel model）
 
 脚本还报告了一个不带 `h` 的角度项诊断：
 
 ```text
 factor = sqrt(n^2 + (n^2 - 1) * (d/(2f))^2)
-Z_snell_candidate = (fB/d) * factor
+Z_symmetric_single_interface_candidate = (fB/d) * factor
 ```
 
-在 `n=1.333`、本视频有效 disparity 的范围内，精确项相对简单 `n·(fB/d)` 的额外差异为：
+在 `n=1.333`、本视频有效 disparity 的范围内，该对称单界面 sanity 项相对简单 `n·(fB/d)` 的额外差异为：
 
 - native：中位约 `0.02235%`，P05 约 `0.01694%`，P95 约 `0.1339%`；
 - custom：中位约 `0.01685%`，P05 约 `0.00872%`，P95 约 `0.1335%`。
@@ -330,7 +375,25 @@ Z_snell_candidate = (fB/d) * factor
 
 - H0：“2.2 m 已经是正确的水下物理深度”：现有数据不足以确认，因为没有独立 GT。
 - H1：“2.2 m 必须再乘 1.333”：现有数据也不支持；custom 标定的 2.2 m 是一套自洽的经验结果，且严格折射模型不是一个无条件全局乘法。
+- H2：“全局 2.2 m 和全局 2.93 m 都不一定是物理精确值；当前 2.2 m 是 empirical effective-pinhole depth”：在 provenance unknown、flat-port 参数缺失和无 GT 的条件下，当前证据最接近 H2/B2。
 - 可确认的事实：“custom pipeline 输出约 2.2 m，且重复性好；native、custom 使用不同的 rectified geometry；两者的 `fB/d` 结果不能直接当作同一个观测量。”
+
+### 8.4 第二轮 per-pixel refractive diagnostic
+
+`refractive_geometry.py` 已实现 air→glass→water 的 vector Snell、plane intersection、左右水中 ray closest-point triangulation 及 `ray_gap`。`debug_flat_port_refractive_model.py` 使用 raw unrectified pixel correspondence；它不把 ordinary rectified SGBM disparity 直接解释成 refractive depth。
+
+当前输出：[`refractive_correspondence_check.json`](output/20260802_150233_flat_port_refractive_audit/refractive_correspondence_check.json)、[`refractive_sensitivity.csv`](output/20260802_150233_flat_port_refractive_audit/refractive_sensitivity.csv) 和 [`REFRACTIVE_MODEL_DIAGNOSTICS.md`](REFRACTIVE_MODEL_DIAGNOSTICS.md)。由于 `n_air/n_glass/n_water/h/glass_thickness/plane_normal` 都没有实测来源，JSON 的 status 是 `not_identifiable_without_port_parameters`，所有 `refractive_depth` 都是 `null`。
+
+### 8.5 Evidence hierarchy
+
+```text
+Level 1  Implementation consistency: source views, /16, units, sign, rectification count, P/Q identities
+Level 2  Geometric self-consistency: feature disparity, alpha invariance, P/Q, custom/ZED agreement
+Level 3  Physical model consistency: vector Snell, flat-port geometry, calibration medium/housing provenance
+Level 4  Absolute metric validation: independently measured underwater GT
+```
+
+本仓库目前 Level 1/2 证据较强，Level 3 只有 model framework、没有真实 housing 参数，Level 4 缺失。因此不能把 implementation PASS 改写成 absolute accuracy VERIFIED。
 
 ## 9. 独立 GT、精度和误差预算
 
@@ -374,28 +437,35 @@ Z_snell_candidate = (fB/d) * factor
 本报告采用以下四级含义：
 
 - **A**：有独立水下绝对 GT，误差和折射模型已闭环验证；
-- **B**：代码链路/内部交叉检查通过，结果稳定，但绝对 GT 或物理介质模型缺失；
+- **B1**：水下同 housing calibration provenance 已确认，但绝对 GT 缺失；
+- **B2**：calibration provenance 本身 unknown，内部几何链路通过，但绝对 GT 缺失；
 - **C**：有证据证明当前结果需一个明确、已验证的折射修正；
 - **D**：存在已确认的实现错误（混用 disparity、重复 rectification、错误单位/符号等）主导结果。
 
-当前为 **B**，不是 A/C/D：
+当前为 **B2**，不是 A/C/D：
 
 | 检查项 | 状态 | 结论 |
 |---|---|---|
 | raw → calibration → rectification → disparity → depth 可追踪 | PASS | 两个分支的图像源、参数和单位已逐段核对 |
 | native/custom disparity 是否混用 | PASS | 各用自己的 rectified disparity 和 `f/B` |
 | `/16`、符号、正深度 | PASS | SGBM fixed-point 和正视差均显式检查 |
+| cross-branch frame alignment | PASS | `frame_observations` 保存 frame index，ratio 用 inner join；不再用 positional `zip()` |
 | 重复 rectification | PASS | native 不再 remap，custom 只 remap 一次 |
-| P/Q 与 `fB/d` | PASS | 最大相对差 `1.19e-7` |
+| native rectified K/P principal points | PASS | SDK 直接读取的左/右 `fx/fy/cy/cx` 检查通过，当前 offset 为 0 |
+| custom P1/P2 principal points | PASS | `CALIB_ZERO_DISPARITY` 下 `cx/cy` offset 均 `<1e-6 px` |
+| P/Q 与 `fB/d` | PASS（custom）；PARTIAL（native） | custom max relative `1.19e-7`；native Q 是 diagnostic-generated，非独立 SDK-Q 验证 |
+| alpha=0/1 correspondence invariance | PASS | 863 对，relative difference P95 `4.99e-15` |
+| per-pixel flat-port geometry | PARTIAL | vector Snell/triangulation framework 已实现；真实 port 参数 unknown，不生成 refractive depth |
 | R/T 数值与 baseline 单位 | PARTIAL | 数值/单位已核对；source 语义仍应由独立 GT 闭环 |
 | 折射模型是否已确认 | FAIL/OPEN | 缺少 h、玻璃参数、介质记录和独立水下验证 |
+| calibration medium/housing provenance | FAIL/OPEN | air/water/housing/target scale 仍 UNKNOWN |
 | absolute ground truth | FAIL/OPEN | 仓库未找到 |
 | 当前 `2.2 m` 是否应乘 `1.333` | 不支持自动乘 | 不能默认乘；也不能宣称绝对已验证 |
 | 是否修改生产行为 | PASS | 只新增独立诊断和本报告，未修改现有生产脚本行为 |
 
 ## 11. 建议的闭环实验
 
-要把 B 提升为 A，最小实验应同时保留原始记录：
+要把 B2 提升为 A，最小实验应同时保留原始记录：
 
 1. 在与实际使用完全相同的相机、舷窗、介质和分辨率下，放置带已知尺寸/已知距离的平面靶标，至少覆盖近、中、远三个距离和多个视场位置。
 2. 记录相机光心到舷窗的 `h`、玻璃厚度、玻璃折射率、两侧介质和温度；明确标定图像是在空气、浸水还是隔着舷窗采集。
@@ -417,6 +487,12 @@ $env:ZED_SDK_ROOT_DIR='C:\Program Files (x86)\ZED SDK.old'
 
 # 独立 custom SGBM；注意 alpha 和 scale 必须随结果一起记录
 & 'C:\Users\10179\.conda\envs\zed\python.exe' .\regenerate_sgbm_depth_histogram.py .\20260802_150233.svo2 --frames 1000 --rectify-alpha 1
+
+# raw correspondence + physical flat-port framework + alpha invariance + sensitivity
+& 'C:\Users\10179\.conda\envs\zed\python.exe' .\debug_flat_port_refractive_model.py .\20260802_150233.svo2 --frames 20 --output-dir .\output\20260802_150233_flat_port_refractive_audit --overwrite
+
+# vector-Snell, triangulation, P/Q, alpha and frame-ID unit tests
+& 'C:\Users\10179\.conda\envs\zed\python.exe' -m unittest -v .\test_refractive_geometry.py
 ```
 
 本审计新增的诊断脚本只负责读取 SVO/标定并写入诊断 JSON，不替换、导入或静默修改现有生产流程。

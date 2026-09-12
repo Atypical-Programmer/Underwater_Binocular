@@ -8,7 +8,8 @@ image geometries:
 * custom: SVO ``VIEW.LEFT_UNRECTIFIED/RIGHT_UNRECTIFIED`` followed by one
   OpenCV ``stereoRectify``/``remap`` operation from ``Calibration/``.
 
-For every frame it computes the four requested paraxial cases:
+For every frame it computes the four requested empirical/pinhole comparison
+cases:
 
     Z_native                 = f_native * B_native / d_native
     Z_native_refractive      = n * Z_native
@@ -16,10 +17,10 @@ For every frame it computes the four requested paraxial cases:
     Z_custom_refractive      = n * Z_custom
 
 It also compares formula depth with ``cv2.reprojectImageTo3D`` and reports a
-paraxial-versus-Snell correction without assuming that the calibration is a
-physical refractive-camera model.  The script intentionally keeps all native
-and custom disparities separate: they are measured in different rectified
-image coordinate systems.
+clearly scoped symmetric single-interface Snell sanity check.  That scalar
+check is not a general flat-port model and is not a per-pixel refractive ray
+trace.  The script intentionally keeps all native and custom disparities
+separate: they are measured in different rectified image coordinate systems.
 """
 
 from __future__ import annotations
@@ -73,6 +74,8 @@ import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 import pyzed.sl as sl  # noqa: E402
 
+from refractive_geometry import pair_frame_records  # noqa: E402
+
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_SVO = ROOT / "20260802_150233.svo2"
@@ -112,6 +115,7 @@ class Rectification:
     alpha: float
     roi_left: tuple[int, int, int, int]
     roi_right: tuple[int, int, int, int]
+    principal_point_checks: dict[str, Any]
 
 
 CASES = (
@@ -257,6 +261,20 @@ def _make_custom_rectification(
     focal = float(p_left[0, 0])
     fy = float(p_left[1, 1])
     baseline_mm = abs(float(p_right[0, 3] / p_right[0, 0]))
+    principal_point_checks = {
+        "cx_left_px": float(p_left[0, 2]),
+        "cx_right_px": float(p_right[0, 2]),
+        "cy_left_px": float(p_left[1, 2]),
+        "cy_right_px": float(p_right[1, 2]),
+        "abs_cx_difference_px": float(abs(p_left[0, 2] - p_right[0, 2])),
+        "abs_cy_difference_px": float(abs(p_left[1, 2] - p_right[1, 2])),
+        "tolerance_px": 1.0e-6,
+        "flags": "CALIB_ZERO_DISPARITY",
+    }
+    principal_point_checks["cx_equal_within_tolerance"] = principal_point_checks["abs_cx_difference_px"] < 1.0e-6
+    principal_point_checks["cy_equal_within_tolerance"] = principal_point_checks["abs_cy_difference_px"] < 1.0e-6
+    if not principal_point_checks["cx_equal_within_tolerance"] or not principal_point_checks["cy_equal_within_tolerance"]:
+        raise RuntimeError(f"custom rectified principal point equality failed: {principal_point_checks}")
     if focal <= 0.0 or fy <= 0.0 or baseline_mm <= 0.0:
         raise RuntimeError(f"invalid custom rectification: f={focal}, fy={fy}, B={baseline_mm}")
     return Rectification(
@@ -276,26 +294,72 @@ def _make_custom_rectification(
         alpha=alpha,
         roi_left=tuple(int(value) for value in roi_left),
         roi_right=tuple(int(value) for value in roi_right),
+        principal_point_checks=principal_point_checks,
     )
 
 
-def _make_native_projection(rectified: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, float]:
+def _native_rectified_checks(rectified: Any, tolerance_px: float = 1.0e-3) -> dict[str, Any]:
+    left = rectified.left_cam
+    right = rectified.right_cam
+    checks = {
+        "fx_left_px": float(left.fx),
+        "fx_right_px": float(right.fx),
+        "fy_left_px": float(left.fy),
+        "fy_right_px": float(right.fy),
+        "cx_left_px": float(left.cx),
+        "cx_right_px": float(right.cx),
+        "cy_left_px": float(left.cy),
+        "cy_right_px": float(right.cy),
+        "abs_fx_difference_px": float(abs(left.fx - right.fx)),
+        "abs_fy_difference_px": float(abs(left.fy - right.fy)),
+        "abs_cx_difference_px": float(abs(left.cx - right.cx)),
+        "abs_cy_difference_px": float(abs(left.cy - right.cy)),
+        "tolerance_px": float(tolerance_px),
+        "fx_left_equals_right": abs(float(left.fx - right.fx)) <= tolerance_px,
+        "fy_left_equals_right": abs(float(left.fy - right.fy)) <= tolerance_px,
+        "cy_left_equals_right": abs(float(left.cy - right.cy)) <= tolerance_px,
+        "cx_offset_is_zero": abs(float(left.cx - right.cx)) <= tolerance_px,
+        "source": "ZED SDK calibration_parameters (rectified), read directly from camera information",
+    }
+    for key in ("fx_left_equals_right", "fy_left_equals_right", "cy_left_equals_right"):
+        if not checks[key]:
+            raise RuntimeError(f"native rectified principal/focal assertion failed: {checks}")
+    return checks
+
+
+def _make_native_projection(
+    rectified: Any,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, float, dict[str, Any]]:
+    checks = _native_rectified_checks(rectified)
     f = float(rectified.left_cam.fx)
     fy = float(rectified.left_cam.fy)
     cx = float(rectified.left_cam.cx)
     cy = float(rectified.left_cam.cy)
+    right_f = float(rectified.right_cam.fx)
+    right_fy = float(rectified.right_cam.fy)
+    right_cx = float(rectified.right_cam.cx)
+    right_cy = float(rectified.right_cam.cy)
     transform = _matrix4(rectified.stereo_transform.m)
     baseline = abs(float(transform[0, 3]))
     if f <= 0.0 or fy <= 0.0 or baseline <= 0.0:
         raise RuntimeError(f"invalid native rectified calibration: f={f}, fy={fy}, B={baseline}")
     p1 = np.array([[f, 0.0, cx, 0.0], [0.0, fy, cy, 0.0], [0.0, 0.0, 1.0, 0.0]], dtype=np.float64)
-    p2 = p1.copy()
-    p2[0, 3] = -f * baseline
-    q = np.array(
-        [[1.0, 0.0, 0.0, -cx], [0.0, 1.0, 0.0, -cy], [0.0, 0.0, 0.0, f], [0.0, 0.0, 1.0 / baseline, 0.0]],
+    p2 = np.array(
+        [[right_f, 0.0, right_cx, 0.0], [0.0, right_fy, right_cy, 0.0], [0.0, 0.0, 1.0, 0.0]],
         dtype=np.float64,
     )
-    return p1, p2, q, f, baseline
+    p2[0, 3] = -right_f * baseline
+    principal_offset = cx - right_cx
+    q = np.array(
+        [
+            [1.0, 0.0, 0.0, -cx],
+            [0.0, 1.0, 0.0, -cy],
+            [0.0, 0.0, 0.0, f],
+            [0.0, 0.0, 1.0 / baseline, -principal_offset / baseline],
+        ],
+        dtype=np.float64,
+    )
+    return p1, p2, q, f, baseline, checks
 
 
 def _as_gray(data: np.ndarray) -> np.ndarray:
@@ -380,8 +444,8 @@ def _region_definitions(
 
     return {
         "image_center_11x11": box(width / 2.0, height / 2.0, 5),
-        "native_optical_center_11x11": box(native_p1[0, 2], native_p1[1, 2], 5),
-        "custom_optical_center_11x11": box(custom_p1[0, 2], custom_p1[1, 2], 5),
+        "native_optical_center_neighborhood_11x11": box(native_p1[0, 2], native_p1[1, 2], 5),
+        "custom_optical_center_neighborhood_11x11": box(custom_p1[0, 2], custom_p1[1, 2], 5),
         "central_40_percent": (
             int(round(width * 0.30)),
             int(round(width * 0.70)),
@@ -394,7 +458,7 @@ def _region_definitions(
 def _new_region_accumulator(regions: dict[str, tuple[int, int, int, int]]) -> dict[str, Any]:
     return {
         name: {
-            case: {"frame_medians": [], "frame_valid_counts": [], "total_valid_pixels": 0}
+            case: {"frame_observations": [], "frame_valid_counts": [], "total_valid_pixels": 0}
             for case in CASES
         }
         for name in regions
@@ -405,16 +469,25 @@ def _record_regions(
     accumulator: dict[str, Any],
     regions: dict[str, tuple[int, int, int, int]],
     case_depths: dict[str, np.ndarray],
+    frame_index: int,
 ) -> None:
     for name, (x0, x1, y0, y1) in regions.items():
         for case, depth_map in case_depths.items():
             values = depth_map[y0:y1, x0:x1]
             valid = values[np.isfinite(values) & (values > 0.0)]
             entry = accumulator[name][case]
-            entry["frame_valid_counts"].append(int(valid.size))
+            entry["frame_valid_counts"].append(
+                {"frame_index": int(frame_index), "valid_count": int(valid.size)}
+            )
             entry["total_valid_pixels"] += int(valid.size)
             if valid.size:
-                entry["frame_medians"].append(float(np.median(valid)))
+                entry["frame_observations"].append(
+                    {
+                        "frame_index": int(frame_index),
+                        "median_depth_m": float(np.median(valid)),
+                        "valid_count": int(valid.size),
+                    }
+                )
 
 
 def _finalize_regions(accumulator: dict[str, Any]) -> dict[str, Any]:
@@ -422,29 +495,21 @@ def _finalize_regions(accumulator: dict[str, Any]) -> dict[str, Any]:
     for name, cases in accumulator.items():
         result[name] = {}
         for case, entry in cases.items():
-            frame_medians = entry["frame_medians"]
-            frame_counts = np.asarray(entry["frame_valid_counts"], dtype=np.int64)
+            observations = entry["frame_observations"]
+            frame_medians = [item["median_depth_m"] for item in observations]
+            frame_counts = np.asarray(
+                [item["valid_count"] for item in entry["frame_valid_counts"]],
+                dtype=np.int64,
+            )
             result[name][case] = {
                 "frame_median_stats_m": _stats(frame_medians),
-                "frame_medians_m": [float(value) for value in frame_medians],
+                "frame_observations": observations,
                 "frame_count_with_valid_median": int(len(frame_medians)),
                 "total_valid_pixels": int(entry["total_valid_pixels"]),
                 "median_valid_pixels_per_frame": float(np.median(frame_counts)) if frame_counts.size else 0.0,
                 "max_valid_pixels_per_frame": int(np.max(frame_counts)) if frame_counts.size else 0,
             }
     return result
-
-
-def _ratio_stats(numerator: list[float], denominator: list[float]) -> dict[str, Any]:
-    count = min(len(numerator), len(denominator))
-    if count == 0:
-        return {"count": 0}
-    values = [
-        float(a / b)
-        for a, b in zip(numerator[:count], denominator[:count])
-        if np.isfinite(a) and np.isfinite(b) and a > 0.0 and b > 0.0
-    ]
-    return _stats(values)
 
 
 def _q_identity(
@@ -567,7 +632,7 @@ def _feature_correspondence_check(
     }
 
 
-def _snell_summary(
+def _symmetric_single_interface_snell_sanity_check(
     f_px: float,
     baseline_m: float,
     disparity_values: list[float],
@@ -583,11 +648,15 @@ def _snell_summary(
         "n": float(n),
         "paraxial_factor": float(n),
         "disparity_stats_px": _stats(d),
-        "exact_snell_factor_stats": _stats(factor),
-        "exact_over_paraxial_percent_stats": _stats(100.0 * factor / n),
-        "exact_minus_paraxial_percent_median": float(100.0 * (np.median(factor) / n - 1.0)),
-        "formula_without_h": (
-            "Z_snell = (f*B/d) * sqrt(n^2 + (n^2-1)*(d/(2f))^2); "
+        "symmetric_single_interface_factor_stats": _stats(factor),
+        "sanity_check_over_paraxial_percent_stats": _stats(100.0 * factor / n),
+        "sanity_check_minus_paraxial_percent_median": float(100.0 * (np.median(factor) / n - 1.0)),
+        "formula_scope": (
+            "symmetric on-axis/single-interface sanity approximation only; assumes symmetric rays "
+            "and derives a single angle from d/(2f); not a general flat-port model or per-pixel ray trace"
+        ),
+        "formula": (
+            "Z_candidate = (f*B/d) * sqrt(n^2 + (n^2-1)*(d/(2f))^2); "
             "camera-center-to-port distance h is not supplied"
         ),
         "unknown_parameters": ["camera_to_flat_port_distance_h", "glass_thickness", "glass_refractive_index"],
@@ -626,7 +695,7 @@ def _run_native(
             raise ValueError(f"requested {frame_count} frames but SVO has {total_frames}")
         raw = configuration.calibration_parameters_raw
         rectified = configuration.calibration_parameters
-        p1, p2, q, focal, baseline = _make_native_projection(rectified)
+        p1, p2, q, focal, baseline, native_rectified_checks = _make_native_projection(rectified)
         accumulator = _new_region_accumulator(regions)
         matcher = _make_matcher()
         runtime = sl.RuntimeParameters()
@@ -651,7 +720,7 @@ def _run_native(
                 "Z_custom": np.full_like(depth_native, np.nan),
                 "Z_custom_refractive": np.full_like(depth_native, np.nan),
             }
-            _record_regions(accumulator, regions, case_depths)
+            _record_regions(accumulator, regions, case_depths, frame_index)
             valid_disparity = disparity[np.isfinite(disparity) & (disparity > 1.0)]
             if valid_disparity.size:
                 chosen = valid_disparity
@@ -685,6 +754,7 @@ def _run_native(
             "image_size": {"width": width, "height": height},
             "raw_calibration": {"left": _camera_metadata(raw.left_cam), "right": _camera_metadata(raw.right_cam), "stereo_transform_m": _matrix4(raw.stereo_transform.m).tolist()},
             "rectified_calibration": {"left": _camera_metadata(rectified.left_cam), "right": _camera_metadata(rectified.right_cam), "stereo_transform_m": _matrix4(rectified.stereo_transform.m).tolist()},
+            "rectified_geometry_checks": native_rectified_checks,
             "P1": p1.tolist(),
             "P2": p2.tolist(),
             "Q": q.tolist(),
@@ -697,9 +767,10 @@ def _run_native(
             "center_disparity_stats_px": _stats(center_disparities),
             "all_valid_disparity_sample_stats_px": _stats(disparity_values),
             "region_results": region_result,
-            "snell_summary": _snell_summary(focal, baseline, disparity_values, n),
+            "symmetric_single_interface_snell_sanity_check": _symmetric_single_interface_snell_sanity_check(focal, baseline, disparity_values, n),
             "feature_correspondence_check_frame_0": first_feature_check,
             "q_identity": _q_identity(p1, p2, q, 1.0),
+            "q_source": "diagnostic-generated Q from the SDK rectified P-like parameters; no native SDK Q API was available in this run",
             "rectification": {
                 "flags": "CALIB_ZERO_DISPARITY",
                 "alpha": "native SDK value; no second rectification applied",
@@ -762,7 +833,7 @@ def _run_custom(
                 "Z_custom": depth_custom,
                 "Z_custom_refractive": depth_custom_refractive,
             }
-            _record_regions(accumulator, regions, case_depths)
+            _record_regions(accumulator, regions, case_depths, frame_index)
             valid_disparity = disparity[np.isfinite(disparity) & (disparity > 1.0)]
             if valid_disparity.size:
                 chosen = valid_disparity
@@ -802,6 +873,7 @@ def _run_custom(
             "Q": rectification.q.tolist(),
             "valid_roi_left": list(rectification.roi_left),
             "valid_roi_right": list(rectification.roi_right),
+            "principal_point_checks": rectification.principal_point_checks,
             "focal_length_px": rectification.focal_px,
             "fy_rectified_px": rectification.fy_px,
             "baseline_m": rectification.baseline_m,
@@ -811,7 +883,7 @@ def _run_custom(
             "center_disparity_stats_px": _stats(center_disparities),
             "all_valid_disparity_sample_stats_px": _stats(disparity_values),
             "region_results": region_result,
-            "snell_summary": _snell_summary(rectification.focal_px, rectification.baseline_m, disparity_values, n),
+            "symmetric_single_interface_snell_sanity_check": _symmetric_single_interface_snell_sanity_check(rectification.focal_px, rectification.baseline_m, disparity_values, n),
             "feature_correspondence_check_frame_0": first_feature_check,
             "q_identity": _q_identity(rectification.p_left, rectification.p_right, rectification.q, rectification.q_length_scale_to_m),
             "rectification": {
@@ -834,9 +906,9 @@ def _add_cross_branch_ratios(result: dict[str, Any]) -> None:
     custom_regions = result["custom"]["region_results"]
     ratios: dict[str, Any] = {}
     region_pairs = {
-        "optical_center_corresponding": (
-            "native_optical_center_11x11",
-            "custom_optical_center_11x11",
+        "optical_center_neighborhoods_not_same_ray": (
+            "native_optical_center_neighborhood_11x11",
+            "custom_optical_center_neighborhood_11x11",
         ),
         "image_center_same_output_coordinates": (
             "image_center_11x11",
@@ -852,22 +924,27 @@ def _add_cross_branch_ratios(result: dict[str, Any]) -> None:
         custom_data = custom_regions[custom_name]
 
         def pair_ratio(native_case: str, custom_case: str) -> dict[str, Any]:
-            native_values = native_data[native_case].get("frame_medians_m", [])
-            custom_values = custom_data[custom_case].get("frame_medians_m", [])
-            paired = [
-                float(custom_value / native_value)
-                for custom_value, native_value in zip(custom_values, native_values)
-                if np.isfinite(custom_value)
-                and np.isfinite(native_value)
-                and custom_value > 0.0
-                and native_value > 0.0
-            ]
-            return _stats(paired)
+            paired_records = pair_frame_records(
+                native_data[native_case].get("frame_observations", []),
+                custom_data[custom_case].get("frame_observations", []),
+            )
+            paired_ratios = []
+            for record in paired_records:
+                native_value = float(record["native"]["median_depth_m"])
+                custom_value = float(record["custom"]["median_depth_m"])
+                if np.isfinite(custom_value) and np.isfinite(native_value) and custom_value > 0.0 and native_value > 0.0:
+                    paired_ratios.append(float(custom_value / native_value))
+            return {
+                "stats": _stats(paired_ratios),
+                "paired_frame_count": len(paired_records),
+                "paired_frame_indices": [int(record["frame_index"]) for record in paired_records],
+                "alignment": "inner join on frame_index; no positional zip",
+            }
 
         ratios[name] = {
             "native_region": native_name,
             "custom_region": custom_name,
-            "note": "Z3/Z2 is computed from per-frame medians in each pipeline's own rectified coordinate system; native and custom disparities are never mixed",
+            "note": "Z3/Z2 is computed from per-frame medians in each pipeline's own rectified coordinate system; native and custom disparities are never mixed. The optical-center neighborhoods are not physically identical rays.",
             "Z3_over_Z2": pair_ratio("Z_native_refractive", "Z_custom"),
             "Z3_over_Z1": pair_ratio("Z_native", "Z_custom"),
             "Z4_over_Z2": pair_ratio("Z_native_refractive", "Z_custom_refractive"),
@@ -971,8 +1048,10 @@ def main() -> int:
     )
     regions = _region_definitions(width, height, native_p1, custom_rectification.p_left)
     rng = np.random.default_rng(args.seed)
-    q_differences: list[float] = []
-    q_relative_differences: list[float] = []
+    native_q_differences: list[float] = []
+    native_q_relative_differences: list[float] = []
+    custom_q_differences: list[float] = []
+    custom_q_relative_differences: list[float] = []
 
     # The full-resolution default is the requested same-frames experiment.
     # For a scaled run, the native branch is resized after retrieval by the
@@ -987,8 +1066,8 @@ def main() -> int:
         args.n_water,
         regions,
         rng,
-        q_differences,
-        q_relative_differences,
+        native_q_differences,
+        native_q_relative_differences,
     )
     custom_result = _run_custom(
         svo_path,
@@ -999,8 +1078,8 @@ def main() -> int:
         height,
         regions,
         rng,
-        q_differences,
-        q_relative_differences,
+        custom_q_differences,
+        custom_q_relative_differences,
     )
 
     result: dict[str, Any] = {
@@ -1024,7 +1103,8 @@ def main() -> int:
             "Z_native_refractive": "n * Z_native",
             "Z_custom": "f_custom_rect_px * B_custom_rect_m / d_custom_px",
             "Z_custom_refractive": "n * Z_custom",
-            "snell_model": "(fB/d) * sqrt(n^2 + (n^2-1)*(d/(2f))^2)",
+            "symmetric_single_interface_snell_sanity_check": "(fB/d) * sqrt(n^2 + (n^2-1)*(d/(2f))^2); symmetric on-axis approximation only",
+            "flat_port_refractive_ray_model": "implemented separately in refractive_geometry.py; definitive result requires measured port parameters",
             "snell_h_model": "not evaluated: h, glass thickness, and glass refractive index are not supplied",
         },
         "custom_calibration": {
@@ -1043,15 +1123,25 @@ def main() -> int:
         },
         "native": native_result,
         "custom": custom_result,
-        "q_validation": {
-            "sample_count": len(q_differences),
+        "native_q_validation": {
+            "sample_count": len(native_q_differences),
             "sample_count_required": 1000,
-            "max_absolute_difference_m": float(max(q_differences)) if q_differences else None,
-            "mean_absolute_difference_m": float(np.mean(q_differences)) if q_differences else None,
-            "max_relative_difference": float(max(q_relative_differences)) if q_relative_differences else None,
-            "mean_relative_difference": float(np.mean(q_relative_differences)) if q_relative_differences else None,
-            "status": "PASS" if len(q_differences) >= 1000 and q_differences and max(q_differences) < 1e-5 else "INSUFFICIENT_OR_FAILED",
-            "note": "Native Q uses metre baseline; custom OpenCV Q uses millimetre T and is converted by 0.001 before comparison.",
+            "max_absolute_difference_m": float(max(native_q_differences)) if native_q_differences else None,
+            "mean_absolute_difference_m": float(np.mean(native_q_differences)) if native_q_differences else None,
+            "max_relative_difference": float(max(native_q_relative_differences)) if native_q_relative_differences else None,
+            "mean_relative_difference": float(np.mean(native_q_relative_differences)) if native_q_relative_differences else None,
+            "status": "PASS" if len(native_q_differences) >= 1000 and native_q_differences and max(native_q_differences) < 1e-5 else "INSUFFICIENT_OR_FAILED",
+            "validation_scope": "diagnostic-generated Q versus diagnostic fB/d using directly read ZED SDK rectified P-like parameters; not an independent SDK-Q validation",
+        },
+        "custom_q_validation": {
+            "sample_count": len(custom_q_differences),
+            "sample_count_required": 1000,
+            "max_absolute_difference_m": float(max(custom_q_differences)) if custom_q_differences else None,
+            "mean_absolute_difference_m": float(np.mean(custom_q_differences)) if custom_q_differences else None,
+            "max_relative_difference": float(max(custom_q_relative_differences)) if custom_q_relative_differences else None,
+            "mean_relative_difference": float(np.mean(custom_q_relative_differences)) if custom_q_relative_differences else None,
+            "status": "PASS" if len(custom_q_differences) >= 1000 and custom_q_differences and max(custom_q_differences) < 1e-5 else "INSUFFICIENT_OR_FAILED",
+            "validation_scope": "OpenCV stereoRectify-generated Q versus custom fB/d using the same rectified disparity; independent implementation identity check",
         },
         "baseline_comparison": {
             "B_nominal_mm": 120.0,
@@ -1076,7 +1166,7 @@ def main() -> int:
             "resize_scale": "1.0; no implicit resize",
             "disparity_fixed_point_division": "/16.0 explicitly applied in both branches",
             "positive_depth_filter": "d > 1 px and finite; non-positive depth is invalid",
-            "q_formula_consistency": "see q_validation and per-branch q_identity",
+            "q_formula_consistency": "see native_q_validation/custom_q_validation and per-branch q_identity",
             "duplicate_rectification": "none: native uses SDK rectified views; custom uses raw unrectified views plus one remap",
             "calibration_source_logged": True,
             "raw_vs_rectified_image_type_logged": True,
@@ -1090,7 +1180,12 @@ def main() -> int:
     print(f"Native rectified f/B: {native_result['focal_length_px']:.9f} px / {native_result['baseline_m']:.9f} m")
     print(f"Custom rectified f/B: {custom_result['focal_length_px']:.9f} px / {custom_result['baseline_m']:.9f} m")
     print(f"n = {args.n_water:.6f}; frames per branch = {min(args.frames, total_frames)}")
-    print(f"Q samples: {len(q_differences)}; max abs difference = {max(q_differences) if q_differences else None} m")
+    print(
+        "Q samples: "
+        f"native={len(native_q_differences)}, custom={len(custom_q_differences)}; "
+        f"max abs difference native={max(native_q_differences) if native_q_differences else None} m, "
+        f"custom={max(custom_q_differences) if custom_q_differences else None} m"
+    )
     print(f"Output: {output_path}")
     return 0
 
