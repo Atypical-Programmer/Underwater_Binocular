@@ -1,5 +1,7 @@
 # 水下双目相机数据处理与定位
 
+最终深度审计结论见 [`FINAL_UNDERWATER_DEPTH_VERDICT.md`](FINAL_UNDERWATER_DEPTH_VERDICT.md)：当前仓库不能单独确定 absolute underwater metric depth；custom 标定的约 2.2 m 不应自动再乘 1.333。完整物理性、假设证伪和最小闭环实验见 [`CALIBRATION_PHYSICALITY_AUDIT.md`](CALIBRATION_PHYSICALITY_AUDIT.md)、[`DEPTH_HYPOTHESIS_FALSIFICATION.md`](DEPTH_HYPOTHESIS_FALSIFICATION.md) 和 [`MINIMUM_EXPERIMENT_TO_CLOSE_DEPTH_SCALE.md`](MINIMUM_EXPERIMENT_TO_CLOSE_DEPTH_SCALE.md)。
+
 本项目用于离线处理 ZED 2i 双目相机录制的 SVO2 数据，重点验证独立 OpenCV 标定对深度、双目几何、位姿和三维重建结果的影响。项目同时提供 ZED 原生深度、OpenCV StereoSGBM、ZED GEN_1/GEN_3 tracking、ORB-SLAM3 以及 Agisoft Metashape 导出流程。
 
 ## 当前样例

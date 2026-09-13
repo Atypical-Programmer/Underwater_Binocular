@@ -1,0 +1,191 @@
+{
+  "script": "final_underwater_model_audit.py",
+  "status": "NOT_IDENTIFIABLE",
+  "model": "R1_native_raw_plus_measured_rig_refraction",
+  "definitive_depth": null,
+  "native_metadata_source": "native_refractive_depth_check.py",
+  "native_candidate": {
+    "sdk_version": "5.4.1",
+    "camera_model": "ZED 2i",
+    "serial_number": 37395692,
+    "resolution": {
+      "width": 1920,
+      "height": 1080
+    },
+    "fps": 30.0,
+    "total_svo_frames": 35855,
+    "read_mode": {
+      "calibration_source": "SVO embedded calibration_parameters_raw",
+      "image_geometry_for_candidate": "VIEW.LEFT_UNRECTIFIED / VIEW.RIGHT_UNRECTIFIED raw distorted pixels",
+      "camera_disable_self_calib": true,
+      "depth_mode": "NONE",
+      "coordinate_units": "METER"
+    },
+    "raw": {
+      "left": {
+        "fx_px": 1068.0,
+        "fy_px": 1067.77001953125,
+        "cx_px": 957.4000244140625,
+        "cy_px": 539.5910034179688,
+        "distortion": [
+          -1.5635299682617188,
+          2.9511098861694336,
+          6.258190114749596e-05,
+          -0.0003552990092430264,
+          0.05648380145430565,
+          -1.4778499603271484,
+          2.800600051879883,
+          0.22780300676822662,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lens_distortion_model": "RAD_TAN"
+      },
+      "right": {
+        "fx_px": 1067.8299560546875,
+        "fy_px": 1067.7099609375,
+        "cx_px": 952.5700073242188,
+        "cy_px": 511.7760009765625,
+        "distortion": [
+          -1.4983400106430054,
+          2.9091899394989014,
+          -0.00015984699712134898,
+          -0.000720512995030731,
+          0.03186500072479248,
+          -1.4111700057983398,
+          2.7601499557495117,
+          0.20186099410057068,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lens_distortion_model": "RAD_TAN"
+      },
+      "stereo_transform_right_to_left_m": [
+        [
+          0.9999756813049316,
+          -0.00560940895229578,
+          0.004144059959799051,
+          0.11989500373601913
+        ],
+        [
+          0.005615715403109789,
+          0.9999830722808838,
+          -0.0015116895083338022,
+          -0.0003074820269830525
+        ],
+        [
+          -0.004135509952902794,
+          0.0015349246095865965,
+          0.9999902844429016,
+          0.00044540801900438964
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "translation_right_to_left_m": [
+        0.11989500373601913,
+        -0.0003074820269830525,
+        0.00044540801900438964
+      ],
+      "camera_center_right_in_left_rig_m": [
+        0.11989500373601913,
+        -0.0003074820269830525,
+        0.00044540801900438964
+      ],
+      "baseline_norm_m": 0.1198962253549308,
+      "baseline_x_abs_m": 0.11989500373601913
+    },
+    "rectified_reference": {
+      "left": {
+        "fx_px": 1078.944091796875,
+        "fy_px": 1078.944091796875,
+        "cx_px": 955.636474609375,
+        "cy_px": 524.4478149414062,
+        "distortion": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lens_distortion_model": "PINHOLE"
+      },
+      "right": {
+        "fx_px": 1078.944091796875,
+        "fy_px": 1078.944091796875,
+        "cx_px": 955.636474609375,
+        "cy_px": 524.4478149414062,
+        "distortion": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "lens_distortion_model": "PINHOLE"
+      },
+      "stereo_transform_m": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.11989622563123703
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "status": "reference only; not used to claim a physical refractive model"
+    }
+  },
+  "missing_physical_parameters": [
+    "housing/port type",
+    "shared/separate port planes in rig frame",
+    "n_air",
+    "n_glass",
+    "n_water",
+    "camera_to_inner_interface_m",
+    "glass_thickness_m",
+    "plane normals",
+    "independent metric GT"
+  ],
+  "same_raw_correspondences_used_for_controls": 2988,
+  "guardrail": "R1 remains null; rig_refractive_sensitivity.csv is hypothetical parameter sensitivity only"
+}

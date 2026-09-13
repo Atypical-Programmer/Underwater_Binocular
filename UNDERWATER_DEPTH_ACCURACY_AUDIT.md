@@ -1,5 +1,7 @@
 # Underwater Stereo Depth Accuracy Audit
 
+> Final verdict and terminal summary: [`FINAL_UNDERWATER_DEPTH_VERDICT.md`](FINAL_UNDERWATER_DEPTH_VERDICT.md). The repository alone cannot determine absolute underwater depth; the final R1 rig model remains not identifiable without measured housing parameters.
+
 审计日期：2026-09-12
 审计对象：`20260802_150233.svo2`、native ZED 标定、`Calibration/` 下的 custom OpenCV 标定，以及仓库中的 SGBM、ZED depth 和 ORB-SLAM3 链路。
 

@@ -477,8 +477,8 @@ def _sensitivity_rows(
                             relative_stats = _stats(relative)
                             rows.append(
                                 {
-                                    "status": "hypothetical_sensitivity_only",
-                                    "parameter_provenance": "hypothetical_grid_not_measured",
+                                    "status": "LEGACY_HYPOTHETICAL_CUSTOM_PLUS_SNELL",
+                                    "parameter_provenance": "NOT_A_PHYSICAL_DEPTH_ESTIMATE; hypothetical grid only",
                                     "n_air": 1.0,
                                     "n_glass": n_glass,
                                     "n_water": n_water,

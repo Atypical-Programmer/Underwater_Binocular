@@ -1,5 +1,7 @@
 # Refractive Model Diagnostics
 
+> This second-round diagnostic is preserved for reproducibility. The final frozen-model conclusion and rig-level audit are in [`FINAL_UNDERWATER_DEPTH_VERDICT.md`](FINAL_UNDERWATER_DEPTH_VERDICT.md) and [`REFRACTIVE_RIG_MODEL_AUDIT.md`](REFRACTIVE_RIG_MODEL_AUDIT.md).
+
 本文件说明第二轮新增的物理几何诊断。它是独立的、只读的 audit tool，不修改 ZED、SGBM 或 ORB-SLAM3 production pipeline。
 
 ## 当前结论
@@ -15,7 +17,7 @@
 ```text
 refractive_correspondence_check.json: status = not_identifiable_without_port_parameters
 alpha_invariance_check.json:          status = PASS, 863 high-quality correspondences
-refractive_sensitivity.csv:            1296 hypothetical rows
+refractive_sensitivity.csv:            1296 rows, LEGACY_HYPOTHETICAL_CUSTOM_PLUS_SNELL
 ```
 
 没有把任何默认的 `h`、玻璃厚度或玻璃折射率写入物理重建，因此所有 correspondence 的 `refractive_depth` 保持 `null`。sensitivity CSV 只是参数敏感性分析，不能当作真实水下深度。
