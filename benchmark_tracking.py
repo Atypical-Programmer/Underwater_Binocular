@@ -119,13 +119,23 @@ def _pose_values(
     return pose_valid, pose_confidence, values, matrix
 
 
-def _make_init(svo_path: Path, depth_mode: Any) -> sl.InitParameters:
+def _make_init(
+    svo_path: Path,
+    depth_mode: Any,
+    calibration_path: Path | None,
+) -> sl.InitParameters:
     init = sl.InitParameters()
     init.set_from_svo_file(str(svo_path))
     init.svo_real_time_mode = False
     init.depth_mode = depth_mode
     init.coordinate_units = sl.UNIT.METER
     init.coordinate_system = sl.COORDINATE_SYSTEM.RIGHT_HANDED_Y_UP
+    if calibration_path is not None:
+        # This is the same SDK initialization path used by the Custom depth
+        # exporter.  Keep the calibration choice explicit and prevent the SDK
+        # from replacing it with the embedded SVO calibration.
+        init.optional_opencv_calibration_file = str(calibration_path)
+        init.camera_disable_self_calib = True
     return init
 
 
@@ -149,9 +159,10 @@ def _run_tracking(
     depth_mode_name: str,
     depth_mode: Any,
     max_source_frames: int,
+    calibration_path: Path | None,
 ) -> tuple[Path, dict[str, Any]]:
     zed = sl.Camera()
-    status = zed.open(_make_init(svo_path, depth_mode))
+    status = zed.open(_make_init(svo_path, depth_mode, calibration_path))
     _check_status(status, "open SVO2")
 
     rows: list[list[Any]] = []
@@ -233,6 +244,7 @@ def _run_tracking(
         mode_name=mode_name,
         enable_area_memory=enable_area_memory,
         depth_mode_name=depth_mode_name,
+        calibration_path=calibration_path,
         total_frames_reported=total_frames,
         elapsed_seconds=time.monotonic() - started,
     )
@@ -256,6 +268,7 @@ def _summarize(
     mode_name: str,
     enable_area_memory: bool,
     depth_mode_name: str,
+    calibration_path: Path | None,
     total_frames_reported: int,
     elapsed_seconds: float,
 ) -> dict[str, Any]:
@@ -280,6 +293,12 @@ def _summarize(
         "coordinate_units": "METER",
         "pose_reference_frame": "WORLD",
         "pose_camera": "LEFT_EYE",
+        "calibration_source": (
+            str(calibration_path) if calibration_path is not None else "SVO embedded/native"
+        ),
+        "custom_calibration_used": calibration_path is not None,
+        "native_svo_calibration_used": calibration_path is None,
+        "camera_disable_self_calib": calibration_path is not None,
         "total_svo_frames_reported": int(total_frames_reported),
         "frames_replayed": len(rows),
         "tracking_state_counts": dict(sorted(Counter(states).items())),
@@ -433,6 +452,15 @@ def _parse_args() -> argparse.Namespace:
         help="Depth mode used while replaying (default: neural).",
     )
     parser.add_argument(
+        "--calibration",
+        type=Path,
+        default=None,
+        help=(
+            "Explicit ZED-compatible OpenCV calibration file. When supplied, "
+            "the SDK uses it and self-calibration is disabled."
+        ),
+    )
+    parser.add_argument(
         "--max-source-frames",
         type=int,
         default=0,
@@ -461,6 +489,12 @@ def main() -> int:
         raise FileNotFoundError(f"SVO/SVO2 file not found: {svo_path}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    calibration_path = (
+        args.calibration.expanduser().resolve() if args.calibration is not None else None
+    )
+    if calibration_path is not None and not calibration_path.is_file():
+        raise FileNotFoundError(f"Calibration file not found: {calibration_path}")
+
     modes = []
     if args.mode in ("gen1", "both"):
         modes.append(("gen1", sl.POSITIONAL_TRACKING_MODE.GEN_1, False))
@@ -483,6 +517,12 @@ def main() -> int:
         "pose_reference_frame": "WORLD",
         "sequential_replay": True,
         "depth_mode": args.depth_mode.upper(),
+        "calibration_source": (
+            str(calibration_path) if calibration_path is not None else "SVO embedded/native"
+        ),
+        "custom_calibration_used": calibration_path is not None,
+        "native_svo_calibration_used": calibration_path is None,
+        "camera_disable_self_calib": calibration_path is not None,
         "max_source_frames": args.max_source_frames,
         "requested_modes": [name for name, _, _ in modes],
     }
@@ -497,6 +537,7 @@ def main() -> int:
             depth_mode_name=args.depth_mode.upper(),
             depth_mode=depth_mode,
             max_source_frames=args.max_source_frames,
+            calibration_path=calibration_path,
         )
         results[mode_name] = {
             "pose_csv": str(csv_path),

@@ -1,5 +1,7 @@
 # Underwater Stereo Depth Accuracy Audit
 
+> 当前生产输出（2026-09-13）：最终完整 depth map 视频已经改为“ZED SDK `MEASURE.DEPTH` + `Calibration/zed_custom_opencv.yml`”。本次共导出 35,855/35,855 帧，原生 SVO 标定没有参与。完整配置、输出文件、中心深度统计、视频帧数验证和旧结果清理记录见 [`CURRENT_DEPTH_PROCESSING_REPORT_20260913.md`](CURRENT_DEPTH_PROCESSING_REPORT_20260913.md)。
+
 > Final verdict and terminal summary: [`FINAL_UNDERWATER_DEPTH_VERDICT.md`](FINAL_UNDERWATER_DEPTH_VERDICT.md). The repository alone cannot determine absolute underwater depth; the final R1 rig model remains not identifiable without measured housing parameters.
 
 审计日期：2026-09-12

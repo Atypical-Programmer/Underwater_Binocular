@@ -6,28 +6,28 @@
 File.version: "1.0"
 Camera.type: "PinHole"
 
-Camera1.fx: 1443.326338
-Camera1.fy: 1441.541002
-Camera1.cx: 967.033878
-Camera1.cy: 540.469238
+Camera1.fx: 721.663169
+Camera1.fy: 720.770501
+Camera1.cx: 483.516939
+Camera1.cy: 270.234619
 Camera1.k1: 0.3151847
 Camera1.k2: -0.7495814
 Camera1.p1: 0.002129304
 Camera1.p2: 0.005759798
 Camera1.k3: 6.688496
 
-Camera2.fx: 1449.830254
-Camera2.fy: 1448.097563
-Camera2.cx: 975.331674
-Camera2.cy: 514.232843
+Camera2.fx: 724.915127
+Camera2.fy: 724.0487815
+Camera2.cx: 487.665837
+Camera2.cy: 257.1164215
 Camera2.k1: 0.3023032
 Camera2.k2: -0.1692313
 Camera2.p1: 0.001685104
 Camera2.p2: 0.01069086
 Camera2.k3: 1.944058
 
-Camera.width: 1920
-Camera.height: 1080
+Camera.width: 960
+Camera.height: 540
 Camera.fps: 30
 Camera.RGB: 0
 

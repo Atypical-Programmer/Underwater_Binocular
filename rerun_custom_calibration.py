@@ -1601,7 +1601,12 @@ def main() -> int:
         max_source_frames=args.max_source_frames,
     )
 
-    shutil.copyfile(opencv_calibration_path, output_dir / "zed_custom_opencv.yml")
+    output_calibration_path = output_dir / "zed_custom_opencv.yml"
+    # ``--opencv-calibration`` may intentionally point into the output
+    # directory.  In that case the calibration has already been written and
+    # copying it onto itself raises SameFileError on Windows.
+    if opencv_calibration_path.resolve() != output_calibration_path.resolve():
+        shutil.copyfile(opencv_calibration_path, output_calibration_path)
     mapping_rows = mapping_details["mapping_rows"]
     metadata = {
         "input_file": str(svo_path),

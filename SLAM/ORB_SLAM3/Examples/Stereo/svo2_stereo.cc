@@ -11,6 +11,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -21,6 +22,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "System.h"
 
@@ -35,18 +37,19 @@ struct Arguments {
     std::string output;
     std::uint64_t max_frames = 0; // 0 means all frames.
     double image_scale = 1.0;
+    std::uint64_t sample_count = 0; // 0 means every source frame.
 };
 
 void printUsage(const char* executable)
 {
     std::cerr << "Usage: " << executable
-              << " <ORBvoc.txt> <ORB-SLAM3.yaml> <recording.svo2> <output_dir> [max_frames] [image_scale]"
+              << " <ORBvoc.txt> <ORB-SLAM3.yaml> <recording.svo2> <output_dir> [max_frames] [image_scale] [sample_count]"
               << std::endl;
 }
 
 Arguments parseArguments(int argc, char** argv)
 {
-    if (argc < 5 || argc > 7) {
+    if (argc < 5 || argc > 8) {
         printUsage(argv[0]);
         throw std::invalid_argument("invalid argument count");
     }
@@ -59,13 +62,37 @@ Arguments parseArguments(int argc, char** argv)
     if (argc >= 6) {
         args.max_frames = std::stoull(argv[5]);
     }
-    if (argc == 7) {
+    if (argc >= 7) {
         args.image_scale = std::stod(argv[6]);
+    }
+    if (argc >= 8) {
+        args.sample_count = std::stoull(argv[7]);
     }
     if (!std::isfinite(args.image_scale) || args.image_scale <= 0.0 || args.image_scale > 1.0) {
         throw std::invalid_argument("image_scale must be in the interval (0, 1]");
     }
     return args;
+}
+
+std::vector<std::uint64_t> uniformSamplePositions(
+    const std::uint64_t frame_count,
+    const std::uint64_t requested_count)
+{
+    if (frame_count == 0) {
+        return {};
+    }
+    const std::uint64_t count =
+        requested_count == 0 ? frame_count : std::min(requested_count, frame_count);
+    if (count == 1) {
+        return {0};
+    }
+
+    std::vector<std::uint64_t> positions;
+    positions.reserve(static_cast<std::size_t>(count));
+    for (std::uint64_t index = 0; index < count; ++index) {
+        positions.push_back((index * (frame_count - 1)) / (count - 1));
+    }
+    return positions;
 }
 
 std::string joinPath(const fs::path& directory, const std::string& filename)
@@ -88,7 +115,12 @@ cv::Mat copyZedBgr(const sl::Mat& image)
     return view.clone();
 }
 
-void writeRunMetadata(const fs::path& output, const Arguments& args, const sl::CameraInformation& info)
+void writeRunMetadata(
+    const fs::path& output,
+    const Arguments& args,
+    const sl::CameraInformation& info,
+    const std::uint64_t total_svo_frames,
+    const std::uint64_t selected_frames)
 {
     std::ofstream metadata(joinPath(output, "run_metadata.txt"), std::ios::trunc);
     metadata << "input_svo=" << fs::absolute(args.svo).string() << '\n';
@@ -108,6 +140,17 @@ void writeRunMetadata(const fs::path& output, const Arguments& args, const sl::C
              << '\n';
     metadata << "fps=" << info.camera_configuration.fps << '\n';
     metadata << "max_frames=" << args.max_frames << " (0=complete SVO)\n";
+    metadata << "source_svo_frames=" << total_svo_frames << '\n';
+    metadata << "sample_count_requested=" << args.sample_count << " (0=all source frames)\n";
+    metadata << "sample_count_selected=" << selected_frames << '\n';
+    metadata << "sampling_mode="
+             << (args.sample_count == 0 ? "sequential_all_frames" : "random_access_uniform")
+             << '\n';
+    metadata << "sampling="
+             << (args.sample_count == 0
+                     ? "all source frames"
+                     : "uniform positions including both source endpoints")
+             << '\n';
 }
 
 } // namespace
@@ -139,7 +182,19 @@ int main(int argc, char** argv)
     }
 
     const sl::CameraInformation camera_info = zed.getCameraInformation();
-    writeRunMetadata(output, args, camera_info);
+    const std::uint64_t total_svo_frames = zed.getSVONumberOfFrames();
+    const std::uint64_t replay_source_frames =
+        args.max_frames == 0
+            ? total_svo_frames
+            : std::min(args.max_frames, total_svo_frames);
+    const std::vector<std::uint64_t> sample_positions =
+        uniformSamplePositions(replay_source_frames, args.sample_count);
+    if (sample_positions.empty()) {
+        std::cerr << "The SVO contains no frames." << std::endl;
+        zed.close();
+        return 4;
+    }
+    writeRunMetadata(output, args, camera_info, total_svo_frames, sample_positions.size());
 
     std::ofstream tracking(joinPath(output, "tracking_log.csv"), std::ios::trunc);
     tracking << "frame,svo_position,timestamp_sec,tracking_state,pose_valid,tracked_map_points,width,height\n";
@@ -155,27 +210,61 @@ int main(int argc, char** argv)
     sl::Mat left_image;
     sl::Mat right_image;
     std::uint64_t frame = 0;
+    std::uint64_t source_frames_read = 0;
     std::uint64_t valid_poses = 0;
     bool reached_svo_end = false;
+    std::size_t next_sample_index = 0;
     const auto wall_start = std::chrono::steady_clock::now();
 
-    while (args.max_frames == 0 || frame < args.max_frames) {
+    const bool random_access_sampling = args.sample_count > 0;
+    while (true) {
+        if (random_access_sampling) {
+            if (next_sample_index >= sample_positions.size()) {
+                break;
+            }
+            const sl::ERROR_CODE seek_error = zed.setSVOPosition(
+                static_cast<int>(sample_positions[next_sample_index]));
+            if (seek_error != sl::ERROR_CODE::SUCCESS) {
+                std::cerr << "Could not seek to sampled SVO position "
+                          << sample_positions[next_sample_index] << ": "
+                          << sl::toString(seek_error) << std::endl;
+                break;
+            }
+        } else if (args.max_frames != 0 && source_frames_read >= args.max_frames) {
+            break;
+        }
+
         const sl::ERROR_CODE grab_error = zed.grab();
         if (grab_error != sl::ERROR_CODE::SUCCESS) {
             if (grab_error == sl::ERROR_CODE::END_OF_SVOFILE_REACHED) {
                 reached_svo_end = true;
             } else {
-                std::cerr << "SVO grab stopped at frame " << frame << ": " << sl::toString(grab_error) << std::endl;
+                std::cerr << "SVO grab stopped at source frame " << source_frames_read
+                          << ": " << sl::toString(grab_error) << std::endl;
             }
             break;
         }
+
+        ++source_frames_read;
+        const std::uint64_t svo_position = zed.getSVOPosition();
+        if (next_sample_index >= sample_positions.size()
+            || svo_position != sample_positions[next_sample_index]) {
+            std::cerr << "SVO position mismatch for uniform sample: observed "
+                      << svo_position << ", expected "
+                      << (next_sample_index < sample_positions.size()
+                              ? sample_positions[next_sample_index]
+                              : std::uint64_t{0})
+                      << std::endl;
+            continue;
+        }
+        ++next_sample_index;
 
         const sl::ERROR_CODE left_error = zed.retrieveImage(
             left_image, sl::VIEW::LEFT_UNRECTIFIED_BGR, sl::MEM::CPU);
         const sl::ERROR_CODE right_error = zed.retrieveImage(
             right_image, sl::VIEW::RIGHT_UNRECTIFIED_BGR, sl::MEM::CPU);
         if (left_error != sl::ERROR_CODE::SUCCESS || right_error != sl::ERROR_CODE::SUCCESS) {
-            std::cerr << "Image retrieval failed at frame " << frame
+            std::cerr << "Image retrieval failed at sampled frame " << frame
                       << ": left=" << sl::toString(left_error)
                       << ", right=" << sl::toString(right_error) << std::endl;
             break;
@@ -198,7 +287,6 @@ int main(int argc, char** argv)
 
         const double timestamp = static_cast<double>(
             zed.getTimestamp(sl::TIME_REFERENCE::IMAGE).getNanoseconds()) * 1e-9;
-        const std::uint64_t svo_position = zed.getSVOPosition();
         slam.TrackStereo(left, right, timestamp);
         const int tracking_state = slam.GetTrackingState();
         const bool pose_valid = tracking_state == 2 || tracking_state == 5; // OK / OK_KLT
@@ -224,19 +312,34 @@ int main(int argc, char** argv)
     zed.close();
     slam.Shutdown();
 
+    if (next_sample_index != sample_positions.size()) {
+        std::cerr << "Uniform sampling ended before all selected frames were processed: "
+                  << next_sample_index << "/" << sample_positions.size() << std::endl;
+    }
+
     const bool map_points_saved = slam.SaveMapPointsXYZ(joinPath(output, "map_points_xyz.csv"));
     slam.SaveTrajectoryTUM(joinPath(output, "CameraTrajectory.txt"));
     slam.SaveKeyFrameTrajectoryTUM(joinPath(output, "KeyFrameTrajectory.txt"));
 
     std::ofstream summary(joinPath(output, "run_summary.txt"), std::ios::trunc);
     summary << "frames_processed=" << frame << '\n';
+    summary << "source_frames_read=" << source_frames_read << '\n';
+    summary << "source_svo_frames=" << total_svo_frames << '\n';
+    summary << "sample_count_requested=" << args.sample_count << '\n';
+    summary << "sample_count_selected=" << sample_positions.size() << '\n';
+    summary << "sample_count_processed=" << next_sample_index << '\n';
+    summary << "sampling_mode="
+            << (random_access_sampling ? "random_access_uniform" : "sequential_all_frames")
+            << '\n';
     summary << "valid_pose_frames=" << valid_poses << '\n';
     summary << "pose_valid_ratio=" << std::setprecision(17)
             << (frame ? static_cast<double>(valid_poses) / static_cast<double>(frame) : 0.0) << '\n';
-    summary << "completed_to_svo_end=" << ((args.max_frames == 0 && reached_svo_end) ? 1 : 0) << '\n';
+    summary << "completed_to_svo_end="
+            << ((!random_access_sampling && args.max_frames == 0 && reached_svo_end) ? 1 : 0)
+            << '\n';
     summary << "map_points_saved=" << (map_points_saved ? 1 : 0) << '\n';
 
     std::cout << "ORB-SLAM3 stereo run finished. frames=" << frame
               << ", valid_pose=" << valid_poses << std::endl;
-    return frame > 0 ? 0 : 4;
+    return frame > 0 && next_sample_index == sample_positions.size() ? 0 : 4;
 }

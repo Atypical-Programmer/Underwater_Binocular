@@ -8,6 +8,7 @@ __pycache__/
 .mypy_cache/
 .pyre/
 .ruff_cache/
+.ipynb_checkpoints/
 .coverage
 .coverage.*
 htmlcov/
@@ -113,3 +114,16 @@ SLAM/ORB_SLAM3/evaluation/
 *.tmp
 *.part
 *.bak
+
+# ------------------------------
+# Root-level depth-analysis exports
+# These files are reproducible from the scripts and notebooks below.
+# ------------------------------
+/notebook_assets/
+/20260802_150233_custom_sdk_depth_all_center_depth.csv
+/20260802_150233_custom_sdk_depth_all_center_depth_histogram.png
+/20260802_150233_custom_sdk_depth_all_center_window_depth_histogram.png
+/20260802_150233_custom_sdk_depth_all_metadata.json
+/CUSTOM_SDK_CENTER_EDGE_*.json
+/RECTIFICATION_LR_CONSISTENCY_*.json
+/RECTIFICATION_PROFILE_EXPERIMENT.json

@@ -1,7 +1,8 @@
 param(
     [UInt64]$MaxFrames = 0,
     [string]$Output = 'output\20260802_150233_orbslam3_stereo',
-    [double]$ImageScale = 1.0
+    [double]$ImageScale = 1.0,
+    [UInt64]$SampleCount = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,6 +34,10 @@ if (Test-Path -LiteralPath $python) {
     }
 }
 
+if ($SampleCount -lt 0) {
+    throw 'SampleCount must be non-negative; 0 means every source frame.'
+}
+
 $exe = Get-ChildItem -LiteralPath (Join-Path $slamRoot 'build') -Filter 'svo2_stereo.exe' -File -Recurse -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -match '\\Release\\' } |
     Select-Object -First 1
@@ -46,5 +51,5 @@ $vcpkgDirectRoot = Join-Path $slamRoot 'vcpkg_installed\x64-windows'
 $env:Path = "$zedRoot\bin;$cudaRoot\bin;$(Join-Path $vcpkgBuildRoot 'bin');$(Join-Path $vcpkgBuildRoot 'debug\bin');$(Join-Path $vcpkgDirectRoot 'bin');$(Join-Path $vcpkgDirectRoot 'debug\bin');$env:Path"
 
 Set-Location $workspace
-& $exe.FullName $vocab $settings $svo $outputPath ([string]$MaxFrames) $imageScaleText
+& $exe.FullName $vocab $settings $svo $outputPath ([string]$MaxFrames) $imageScaleText ([string]$SampleCount)
 exit $LASTEXITCODE
