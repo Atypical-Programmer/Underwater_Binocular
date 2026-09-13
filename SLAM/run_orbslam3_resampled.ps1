@@ -25,6 +25,8 @@ $outputPath = if ([System.IO.Path]::IsPathRooted($Output)) {
 $diagnosticDir = Join-Path $outputPath 'diagnostic_full'
 $stableDir = Join-Path $outputPath 'stable_map'
 $planPath = Join-Path $diagnosticDir 'segment_plan.json'
+$stablePlanPath = Join-Path $stableDir 'segment_plan_actual.json'
+$planForBuild = $planPath
 $imageScaleText = $ImageScale.ToString([System.Globalization.CultureInfo]::InvariantCulture)
 
 if ($ImageScale -le 0.0 -or $ImageScale -gt 1.0) {
@@ -87,14 +89,69 @@ Write-Host ("Selected source segment {0}..{1} ({2} frames); bounded replay ends 
 
 Write-Host '=== 4/5 Bounded stable-map replay at scale 1.0 ===' -ForegroundColor Cyan
 & $runner -MaxFrames $stableMaxFrames -Output $stableDir -ImageScale $imageScaleText
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
+$stableExitCode = $LASTEXITCODE
+
+# A long full-resolution replay can encounter a numerical failure after a
+# perfectly usable prefix.  Never fill the missing poses: inspect the
+# completed rows, require at least MinSegmentFrames, then rerun only through
+# that verified prefix so ORB-SLAM3 can flush its map and trajectories.
+$stableTrackingPath = Join-Path $stableDir 'tracking_log.csv'
+$stableTrajectoryPath = Join-Path $stableDir 'CameraTrajectory.txt'
+$stableMapPointsPath = Join-Path $stableDir 'map_points_xyz.csv'
+$stableHasArtifacts = (Test-Path -LiteralPath $stableTrajectoryPath) -and
+    (Test-Path -LiteralPath $stableMapPointsPath)
+if (Test-Path -LiteralPath $stableTrackingPath) {
+    & $python $organizer analyze `
+        '--tracking-log' $stableTrackingPath `
+        '--output-plan' $stablePlanPath `
+        '--min-required' ([string]$MinSegmentFrames)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Could not analyze the partial stable-map tracking log.'
+    }
+    $stablePlanData = Get-Content -LiteralPath $stablePlanPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $stableSegmentLength = [Int64]$stablePlanData.selected_segment.length
+    $stableSegmentEnd = [Int64]$stablePlanData.selected_segment.end_frame
+    if ($stableSegmentLength -lt $MinSegmentFrames) {
+        throw "Stable replay failed and its longest valid prefix has only $stableSegmentLength frames; refusing 3000-frame export."
+    }
+    $planForBuild = $stablePlanPath
+    if (($stableExitCode -ne 0) -or (-not $stableHasArtifacts) -or ($stableSegmentEnd -lt $segmentEnd)) {
+        $repairMaxFrames = $stableSegmentEnd + 1
+        Write-Warning ("Stable replay did not finish the diagnostic segment; repairing with a bounded replay through source frame {0}." -f $stableSegmentEnd)
+        & $runner -MaxFrames $repairMaxFrames -Output $stableDir -ImageScale $imageScaleText
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
+        $stableHasArtifacts = (Test-Path -LiteralPath $stableTrajectoryPath) -and
+            (Test-Path -LiteralPath $stableMapPointsPath)
+        if (-not $stableHasArtifacts) {
+            throw 'The repaired stable replay finished without trajectory and MapPoint exports.'
+        }
+        & $python $organizer analyze `
+            '--tracking-log' $stableTrackingPath `
+            '--output-plan' $stablePlanPath `
+            '--min-required' ([string]$MinSegmentFrames)
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Could not analyze the repaired stable-map tracking log.'
+        }
+        $stablePlanData = Get-Content -LiteralPath $stablePlanPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $stableSegmentLength = [Int64]$stablePlanData.selected_segment.length
+        if ($stableSegmentLength -lt $MinSegmentFrames) {
+            throw "The repaired stable replay has only $stableSegmentLength valid frames; refusing 3000-frame export."
+        }
+        $planForBuild = $stablePlanPath
+    }
+} elseif ($stableExitCode -ne 0) {
+    exit $stableExitCode
+}
+if (-not $stableHasArtifacts) {
+    throw 'Stable replay did not produce the required CameraTrajectory.txt and map_points_xyz.csv.'
 }
 
 Write-Host '=== 5/5 Extract exact samples, Metashape YPR, and colored sparse map ===' -ForegroundColor Cyan
 & $python $organizer build `
     '--stable-dir' $stableDir `
-    '--plan' $planPath `
+    '--plan' $planForBuild `
     '--svo' $svo `
     '--calibration-root' $calibrationRoot `
     '--output-root' $outputPath

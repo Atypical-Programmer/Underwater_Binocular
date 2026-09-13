@@ -195,8 +195,10 @@ canvas.dragging { cursor: grabbing; }
   <div class="title">ORB-SLAM3 双目相机 Frame · 交互式 3D</div>
   <button id="reset">重置视角</button>
   <label><input id="showFrames" type="checkbox" checked>显示相机 frame</label>
+  <label><input id="showFrustums" type="checkbox" checked>显示相机视锥</label>
   <label><input id="showInvalid" type="checkbox" checked>显示失效轨迹段</label>
   <label>frame 数量 <input id="frameCount" type="range" min="8" max="__MAX_FRAMES__" value="__MAX_FRAMES__"><span id="frameCountValue">__MAX_FRAMES__</span></label>
+  <label>frame 大小 <input id="frameScale" type="range" min="0.35" max="2.50" step="0.05" value="1.00"><span id="frameScaleValue">1.00x</span></label>
   <span id="stats" class="subtle"></span>
 </div>
 <div id="viewer">
@@ -215,9 +217,12 @@ const canvas = document.getElementById("canvas");
 const viewer = document.getElementById("viewer");
 const tooltip = document.getElementById("tooltip");
 const showFrames = document.getElementById("showFrames");
+const showFrustums = document.getElementById("showFrustums");
 const showInvalid = document.getElementById("showInvalid");
 const frameCount = document.getElementById("frameCount");
 const frameCountValue = document.getElementById("frameCountValue");
+const frameScale = document.getElementById("frameScale");
+const frameScaleValue = document.getElementById("frameScaleValue");
 const stats = document.getElementById("stats");
 const ctx = canvas.getContext("2d");
 let width = 0, height = 0, dpr = 1;
@@ -314,17 +319,55 @@ function visibleFrames() {
   return result;
 }
 
+function add3(a, b) {
+  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+}
+
+function mul3(a, scalar) {
+  return [a[0] * scalar, a[1] * scalar, a[2] * scalar];
+}
+
+function drawCameraFrustum(frame, hoveredFrame) {
+  const origin = frame.origin;
+  const xAxis = [frame.axes[0][0] - origin[0], frame.axes[0][1] - origin[1], frame.axes[0][2] - origin[2]];
+  const yAxis = [frame.axes[1][0] - origin[0], frame.axes[1][1] - origin[1], frame.axes[1][2] - origin[2]];
+  const zAxis = [frame.axes[2][0] - origin[0], frame.axes[2][1] - origin[1], frame.axes[2][2] - origin[2]];
+  const size = Number(frameScale.value);
+  // OpenCV/ORB-SLAM3 camera convention: +X right, +Y down, +Z forward.
+  const forward = mul3(zAxis, 1.80 * size);
+  const halfWidth = mul3(xAxis, 0.68 * size);
+  const halfHeight = mul3(yAxis, 0.48 * size);
+  const center = add3(origin, forward);
+  const corners = [
+    add3(add3(center, halfWidth), halfHeight),
+    add3(add3(center, mul3(halfWidth, -1)), halfHeight),
+    add3(add3(center, mul3(halfWidth, -1)), mul3(halfHeight, -1)),
+    add3(add3(center, halfWidth), mul3(halfHeight, -1)),
+  ];
+  const edgeColor = frame.valid ? "#ffd166" : "#e27a81";
+  const alpha = hoveredFrame ? 0.95 : (frame.valid ? 0.62 : 0.30);
+  const lineWidth = hoveredFrame ? 2.8 : 1.35;
+  for (const corner of corners) line3d(origin, corner, edgeColor, lineWidth, alpha);
+  for (let index = 0; index < corners.length; index++) {
+    line3d(corners[index], corners[(index + 1) % corners.length], edgeColor, lineWidth, alpha);
+  }
+  // A short optical-axis marker makes the viewing direction unambiguous.
+  line3d(origin, center, "#ffffff", hoveredFrame ? 2.0 : 0.9, hoveredFrame ? 0.90 : 0.38);
+}
+
 function drawCameraFrames() {
   if (!showFrames.checked) return;
   for (const frame of visibleFrames()) {
-    const alpha = frame.valid ? .72 : .38;
+    const hoveredFrame = hovered === frame;
+    const alpha = frame.valid ? .88 : .42;
     const origin = frame.origin;
-    line3d(origin, frame.axes[0], "#eb4b57", hovered === frame ? 3.0 : 1.4, alpha);
-    line3d(origin, frame.axes[1], "#4dcc7a", hovered === frame ? 3.0 : 1.4, alpha);
-    line3d(origin, frame.axes[2], "#4d91ef", hovered === frame ? 3.0 : 1.4, alpha);
+    if (showFrustums.checked) drawCameraFrustum(frame, hoveredFrame);
+    line3d(origin, frame.axes[0], "#eb4b57", hoveredFrame ? 4.0 : 2.3, alpha);
+    line3d(origin, frame.axes[1], "#4dcc7a", hoveredFrame ? 4.0 : 2.3, alpha);
+    line3d(origin, frame.axes[2], "#4d91ef", hoveredFrame ? 4.0 : 2.3, alpha);
     const p = project(origin);
-    ctx.fillStyle = hovered === frame ? "#ffffff" : (frame.valid ? "#d9e5ee" : "#e27a81");
-    ctx.beginPath(); ctx.arc(p.x, p.y, hovered === frame ? 5 : 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = hoveredFrame ? "#ffffff" : (frame.valid ? "#d9e5ee" : "#e27a81");
+    ctx.beginPath(); ctx.arc(p.x, p.y, hoveredFrame ? 6 : 3.2, 0, Math.PI * 2); ctx.fill();
   }
 }
 
@@ -397,8 +440,10 @@ canvas.addEventListener("wheel", event => {
 canvas.addEventListener("contextmenu", event => event.preventDefault());
 document.getElementById("reset").addEventListener("click", resetView);
 showFrames.addEventListener("change", draw);
+showFrustums.addEventListener("change", draw);
 showInvalid.addEventListener("change", draw);
 frameCount.addEventListener("input", () => { frameCountValue.textContent = frameCount.value; hovered = null; tooltip.style.display = "none"; draw(); });
+frameScale.addEventListener("input", () => { frameScaleValue.textContent = `${Number(frameScale.value).toFixed(2)}x`; draw(); });
 window.addEventListener("resize", resize);
 resize();
 </script>
