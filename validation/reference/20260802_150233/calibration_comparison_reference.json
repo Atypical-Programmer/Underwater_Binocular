@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "meaning": "compact calibration comparison reference; not physical ground truth",
+  "dataset": "20260802_150233",
+  "resolution": {"width": 1920, "height": 1080},
+  "native": {
+    "source": "SVO embedded calibration",
+    "raw_focal_left_px": 1068.0,
+    "raw_focal_right_px": 1067.8299560546875,
+    "raw_baseline_norm_m": 0.1198962253549308,
+    "rectified_focal_px": 1078.944091796875,
+    "rectified_baseline_m": 0.11989622563123703
+  },
+  "custom": {
+    "source": "calibration/generated/zed_custom_opencv.yml",
+    "raw_focal_left_px": 1443.326338,
+    "raw_focal_right_px": 1449.830254,
+    "raw_baseline_norm_m": 0.1237302227994842,
+    "translation_left_to_right_m": [-0.1224352, 0.0001676, 0.0178539]
+  },
+  "comparison": {
+    "left_fx_custom_over_native": 1.3514291554307116,
+    "right_fx_custom_over_native": 1.3577351391758004,
+    "custom_minus_native_baseline_norm_m": 0.0038339974445533997,
+    "custom_source_vs_opencv_max_abs": 0.0,
+    "interpretation": "Native and custom raw calibration are different models. Do not subtract transforms without aligning conventions, and do not apply a blanket refractive scale."
+  },
+  "source_files": [
+    {
+      "path": "output/20260802_150233_calibration_comparison.json",
+      "size_bytes": 14225,
+      "sha256": "80d8a9729922c17db70e02d4bf58fcd65d423baff018c5f702307da9a9b9a2e0"
+    },
+    {
+      "path": "output/_audit_calibration_comparison.json",
+      "size_bytes": 14225,
+      "sha256": "80d8a9729922c17db70e02d4bf58fcd65d423baff018c5f702307da9a9b9a2e0"
+    }
+  ],
+  "duplicate_source_hash_equal": true
+}

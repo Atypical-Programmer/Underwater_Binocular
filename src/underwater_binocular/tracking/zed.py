@@ -19,7 +19,7 @@ import numpy as np
 from .. import __version__
 from ..calibration.loaders import load_calibration_profile, sha256_file
 from ..config.loaders import load_dataset_config, load_zed_config
-from ..config.models import DatasetConfig, ZedSessionConfig
+from ..config.models import CalibrationMode, DatasetConfig, ZedSessionConfig
 from ..io.zed import ZedSession
 
 
@@ -502,6 +502,7 @@ def run_tracking(
     *,
     mode: str = "GEN_1",
     output_dir: Path,
+    calibration_mode: CalibrationMode | str = CalibrationMode.NATIVE,
     svo_override: Path | None = None,
     profile_override: Path | None = None,
     zed_config_path: Path | None = None,
@@ -514,8 +515,15 @@ def run_tracking(
 
     dataset_path = dataset_path.expanduser().resolve()
     dataset: DatasetConfig = load_dataset_config(dataset_path)
-    profile_path = (profile_override or dataset.calibration_profile).expanduser().resolve()
-    calibration = load_calibration_profile(profile_path)
+    selected_calibration_mode = CalibrationMode.parse(calibration_mode)
+    if selected_calibration_mode is CalibrationMode.NATIVE and profile_override is not None:
+        raise ValueError("--profile is only valid with --calibration-mode custom")
+    profile_path = (
+        (profile_override or dataset.calibration_profile).expanduser().resolve()
+        if selected_calibration_mode is CalibrationMode.CUSTOM
+        else None
+    )
+    calibration = load_calibration_profile(profile_path) if profile_path is not None else None
     svo_path = dataset.resolve_svo_path(svo_override)
     zed_config = load_zed_config(zed_config_path) if zed_config_path else ZedSessionConfig()
     normalized_mode = str(mode).upper()
@@ -531,6 +539,9 @@ def run_tracking(
     started_at = _utc_now()
     root_metadata: dict[str, Any] = {
         "status": "running",
+        "result_status": "experimental",
+        "purpose": "production",
+        "retain_policy": "keep",
         "dataset": dataset.dataset_id,
         "dataset_config": str(dataset_path),
         "svo_path": str(svo_path),
@@ -546,9 +557,10 @@ def run_tracking(
             "requested_end_frame": end_frame,
             "max_frames": max_frames,
         },
-        "calibration_mode": "custom",
-        "custom_calibration_path": str(profile_path),
-        "custom_calibration_sha256": sha256_file(profile_path),
+        "calibration_mode": selected_calibration_mode.value,
+        "calibration_source": (
+            "svo_embedded" if selected_calibration_mode is CalibrationMode.NATIVE else "custom_profile"
+        ),
         "coordinate_system": zed_config.coordinate_system,
         "translation_unit": "metre",
         "pose_reference_frame": "WORLD",
@@ -558,6 +570,9 @@ def run_tracking(
         "started_at_utc": started_at,
         "software_versions": _software_versions(),
     }
+    if profile_path is not None:
+        root_metadata["custom_calibration_path"] = str(profile_path)
+        root_metadata["custom_calibration_sha256"] = sha256_file(profile_path)
     _write_json(output_dir / "run.json", root_metadata)
 
     branch_records: dict[str, list[TrackingRecord]] = {}
@@ -584,6 +599,7 @@ def run_tracking(
                 svo_path,
                 profile_path,
                 zed_config,
+                calibration_mode=selected_calibration_mode,
                 expected_calibration=calibration,
             ) as session:
                 records = replay_tracking(
@@ -607,6 +623,7 @@ def run_tracking(
             branch_metadata.update(
                 {
                     "status": "completed",
+                    "result_status": "complete",
                     "finished_at_utc": _utc_now(),
                     "summary_file": str(branch_dir / "summary.json"),
                 }
@@ -621,6 +638,7 @@ def run_tracking(
             )
             root_summary: dict[str, Any] = {
                 "status": "completed",
+                "result_status": "complete",
                 "mode": "BOTH",
                 "sequential_replay": True,
                 "independent_replays": True,
@@ -632,6 +650,7 @@ def run_tracking(
         root_metadata.update(
             {
                 "status": "completed",
+                "result_status": "complete",
                 "finished_at_utc": _utc_now(),
                 "summary_file": str(output_dir / "summary.json"),
                 "software_versions": (
@@ -648,6 +667,7 @@ def run_tracking(
         root_metadata.update(
             {
                 "status": "failed",
+                "result_status": "failed",
                 "finished_at_utc": _utc_now(),
                 "error_type": type(error).__name__,
                 "error": str(error),

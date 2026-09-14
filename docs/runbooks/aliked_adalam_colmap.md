@@ -93,6 +93,13 @@ The matcher calls `kornia.feature.match_adalam` directly with ALIKED descriptors
 
 The pipeline writes canonical-profile camera parameters into separate left/right cameras. The default mode is `FULL_OPENCV` with `calibration_mode=frozen`; mapper flags disable focal, principal-point, and extra-parameter refinement. `--no-freeze-calibration` marks the run `refined` and enables those flags.
 
+For a small external compatibility audit using already extracted images, run
+`scripts/run_colmap_compatibility_smoke.py` with 20–50 synchronized pairs. The
+audit records the COLMAP executable, importer database statistics, verified
+two-view geometries, mapper model counts, and model-converter output in the
+run summary. If no executable is available, record `NOT EXECUTED` and retain
+unique historical databases/models.
+
 Custom ALIKED float descriptors remain in `features/*.npz`. COLMAP's legacy SIFT-shaped descriptor column is an inert uint8 storage slot because raw AdaLAM matches are imported explicitly; COLMAP native feature extraction is never run and cannot overwrite the custom feature stage. The database contains the intended custom keypoints and, after `matches_importer`, custom raw matches and verified two-view geometries.
 
 When `--skip-colmap` is passed, the command stops before any external executable and inserts the accepted custom matches directly into `colmap/database.db`; the summary says `NOT_EXECUTED` for COLMAP. Without that flag, the command runs `matches_importer`, then `mapper`, then `model_converter`, with logs under `colmap/logs/`. A missing executable or mapper failure is an explicit error.

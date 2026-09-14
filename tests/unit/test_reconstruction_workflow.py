@@ -66,6 +66,25 @@ def test_pair_generation_is_bounded_and_contains_synchronized_stereo() -> None:
     assert len(pairs) < len(records) * (len(records) - 1) // 2
 
 
+def test_stereo_window_preserves_all_matching_frame_pairs() -> None:
+    records = [
+        ImageRecord(Path("left_0.png"), "left/left_0.png", "left", 0),
+        ImageRecord(Path("left_1.png"), "left/left_1.png", "left", 10),
+        ImageRecord(Path("left_2.png"), "left/left_2.png", "left", 21),
+        ImageRecord(Path("right_0.png"), "right/right_0.png", "right", 1),
+        ImageRecord(Path("right_1.png"), "right/right_1.png", "right", 12),
+        ImageRecord(Path("right_2.png"), "right/right_2.png", "right", 23),
+    ]
+
+    pairs = build_image_pairs(records, temporal_window=0, stereo_window=2)
+    actual = {
+        (pair.first_index, pair.second_index)
+        for pair in pairs
+        if pair.category == "synchronized_left_right"
+    }
+    assert actual == {(0, 3), (1, 4), (2, 5)}
+
+
 def test_colmap_database_contains_custom_keypoints_and_matches(tmp_path: Path) -> None:
     profile_path = ROOT / "calibration/profiles/zed2i_37395692_custom.yaml"
     calibration = load_calibration_profile(profile_path)
@@ -119,4 +138,9 @@ def test_colmap_database_contains_custom_keypoints_and_matches(tmp_path: Path) -
     assert stats["matches"] == 1
     with sqlite3.connect(database) as connection:
         names = [row[0] for row in connection.execute("SELECT name FROM images ORDER BY image_id")]
+        parameter_count = len(np.frombuffer(
+            connection.execute("SELECT params FROM cameras WHERE camera_id = 1").fetchone()[0],
+            dtype=np.float64,
+        ))
     assert names == ["left/left.png", "right/right.png"]
+    assert parameter_count == 12

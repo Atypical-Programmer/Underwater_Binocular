@@ -493,6 +493,8 @@ def run_aliked_colmap(
     init_min_tri_angle: float = 2.0,
     skip_colmap: bool = False,
     resume: bool = True,
+    purpose: str | None = None,
+    retain_policy: str | None = None,
 ) -> dict[str, Any]:
     """Execute image extraction through COLMAP, or stop explicitly before COLMAP."""
 
@@ -520,8 +522,17 @@ def run_aliked_colmap(
     )
     zed_config = ZedSessionConfig()
     started_at = _utc_now()
+    effective_purpose = purpose or ("smoke" if skip_colmap else "production")
+    effective_retain_policy = retain_policy or ("keep_summary" if skip_colmap else "keep")
+    if effective_purpose not in {"production", "baseline", "diagnostic", "smoke", "ablation"}:
+        raise ValueError("purpose must be production, baseline, diagnostic, smoke, or ablation")
+    if effective_retain_policy not in {"keep", "keep_summary", "archive", "disposable"}:
+        raise ValueError("retain_policy must be keep, keep_summary, archive, or disposable")
     run_metadata: dict[str, Any] = {
         "status": "running",
+        "result_status": "experimental",
+        "purpose": effective_purpose,
+        "retain_policy": effective_retain_policy,
         "dataset": dataset.dataset_id,
         "dataset_config": str(dataset_path),
         "svo_path": str(svo_path),
@@ -672,6 +683,7 @@ def run_aliked_colmap(
         run_metadata.update(
             {
                 "status": "completed",
+                "result_status": "complete",
                 "finished_at_utc": _utc_now(),
                 "output_structure": {
                     "images": str(output / "images"),
@@ -696,6 +708,7 @@ def run_aliked_colmap(
         run_metadata.update(
             {
                 "status": "failed",
+                "result_status": "failed",
                 "finished_at_utc": _utc_now(),
                 "error_type": type(error).__name__,
                 "error": str(error),

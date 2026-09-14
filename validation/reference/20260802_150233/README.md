@@ -28,5 +28,9 @@ These files are behavioral regression references, not independent physical groun
 | `sdk_runtime_reference.json` | native SDK runtime calibration plus custom production runtime/depth metadata |
 | `depth_reference.json` | full custom SDK operational center-depth statistics |
 | `sgbm_reference.json` | independent OpenCV SGBM/rectification statistics and parameters |
+| `calibration_comparison_reference.json` | compact native-vs-custom calibration comparison and duplicate hash |
+| `tracking_native_reference.json` | historical native GEN_1 full replay baseline |
+| `orbslam3_reference.json` | ORB-SLAM3 baseline runs and stale inconsistent run |
+| `sfm_reference.json` | primary/secondary/incomplete ALIKED + AdaLAM + COLMAP results |
 | `rectification_reference.json` | native SDK and custom alpha=0/alpha=1 P/Q identities |
 | `refractive_audit_reference.json` | compact audit status, counts, hashes, and legacy sensitivity guardrails |

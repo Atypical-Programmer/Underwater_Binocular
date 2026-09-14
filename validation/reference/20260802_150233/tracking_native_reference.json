@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "meaning": "historical native ZED tracking baseline; local trajectory, not independently georeferenced truth",
+  "dataset": "20260802_150233",
+  "calibration_mode": "native",
+  "calibration_source": "SVO embedded calibration",
+  "algorithm": "GEN_1",
+  "scope": "full35855",
+  "sdk_version": "5.4.1",
+  "frames_replayed": 35855,
+  "valid_pose_frames": 35855,
+  "valid_pose_ratio": 1.0,
+  "tracking_state_counts": {"OK": 35855},
+  "trajectory": {
+    "path_length_m": 232.30556276922485,
+    "endpoint_displacement_m": 85.95149571836642,
+    "step_p50_m": 0.004216065929336312,
+    "step_p95_m": 0.021354488048723304,
+    "step_max_m": 0.22814110739327342
+  },
+  "purpose": "baseline",
+  "result_status": "complete",
+  "retain_policy": "keep",
+  "source_files": [
+    {"path": "output/20260802_150233_tracking_gen1_neural/summary_gen1.json", "size_bytes": 1415, "sha256": "89d955dd7506e1946b988b9b2eef2f8c45f0cb731ace53ca87517e5901fcbd94"},
+    {"path": "output/20260802_150233_tracking_gen1_neural/experiment_summary.json", "size_bytes": 2123, "sha256": "28701f6f0bafba58e02c6da022b9c2eef474612e70879d60f23763d1c0fb33a"}
+  ]
+}

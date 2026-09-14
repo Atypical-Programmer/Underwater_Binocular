@@ -54,9 +54,9 @@ Package-internal translations are metres. The stereo transform is always:
 X_right = R_left_to_right @ X_left + t_left_to_right
 ```
 
-Raw distorted images are `RAW_UNRECTIFIED`; OpenCV/ZED rectified images are `RECTIFIED`. The ZED session is opened once through `io.zed.ZedSession`, with custom calibration verification after opening. Depth consumers receive the common `DepthFrame` model, whether the engine is ZED `MEASURE.DEPTH` or OpenCV StereoSGBM.
+Raw distorted images are `RAW_UNRECTIFIED`; OpenCV/ZED rectified images are `RECTIFIED`. The ZED session is opened once through `io.zed.ZedSession`, with explicit native/custom calibration policy. The recommended tracking mode is `native`, which uses calibration embedded in the SVO and does not set `optional_opencv_calibration_file`; `custom` is an explicit comparison mode that passes the canonical profile and verifies runtime calibration. Depth consumers receive the common `DepthFrame` model, whether the engine is ZED `MEASURE.DEPTH` or OpenCV StereoSGBM.
 
-Read [docs/architecture.md](docs/architecture.md) for the topology, [docs/depth_pipeline.md](docs/depth_pipeline.md) for depth semantics, and [docs/validation.md](docs/validation.md) for reproducibility and scientific guardrails.
+Read [docs/architecture.md](docs/architecture.md) for the topology, [docs/depth_pipeline.md](docs/depth_pipeline.md) for depth semantics, [docs/validation.md](docs/validation.md) for reproducibility and scientific guardrails, and [OUTPUT_CONSOLIDATION_REPORT.md](OUTPUT_CONSOLIDATION_REPORT.md) for the current local output inventory and run status.
 
 ## Capabilities
 
@@ -65,7 +65,7 @@ Read [docs/architecture.md](docs/architecture.md) for the topology, [docs/depth_
 | Calibration | `underwater calibration validate` | Stable | core package |
 | ZED SDK depth | `underwater depth export ...` | Integration; requires vendor SDK/SVO | `pyzed.sl` |
 | StereoSGBM depth | `underwater depth export --engine sgbm ...` | Integration; requires SVO/image input | OpenCV + ZED I/O |
-| ZED positional tracking | `underwater tracking zed ...` | Integration; sequential replay requires vendor SDK/SVO | `pyzed.sl` |
+| ZED positional tracking | `underwater tracking zed ... --calibration-mode native` | Integration; sequential replay requires vendor SDK/SVO | `pyzed.sl` |
 | ALIKED + AdaLAM + COLMAP | `underwater sfm aliked-colmap ...` | Integration; real feature/match smoke tested, full external workflow environment-dependent | torch, LightGlue, Kornia, COLMAP |
 | ORB-SLAM3 | `integrations/orbslam3/run_orbslam3_svo2.ps1` | Integration; requires native build/toolchain | ORB-SLAM3, ZED SDK, CUDA |
 | Metashape export | `underwater_binocular.reconstruction.metashape` | Library only | external Metashape GUI |
@@ -77,16 +77,23 @@ The versioned dataset config intentionally has no machine-specific SVO path. Set
 
 ```powershell
 # ZED GEN_1 sequential tracking
-.scriptsun_zed_tracking.ps1 -Mode GEN_1
+.\scripts\run_zed_tracking.ps1 -Mode GEN_1 -CalibrationMode native
 
 # ZED GEN_3 sequential tracking smoke
-.scriptsun_zed_tracking.ps1 -Mode GEN_3 -MaxFrames 1000
+.\scripts\run_zed_tracking.ps1 -Mode GEN_3 -MaxFrames 1000 -CalibrationMode native
 
 # 50-frame ALIKED + AdaLAM smoke; include both camera sides and stop before COLMAP
-.scriptsun_aliked_adalam_colmap.ps1 -Frames 50 -IncludeRight -SkipColmap
+.\scripts\run_aliked_adalam_colmap.ps1 -Frames 50 -IncludeRight -SkipColmap
 
 # Longer ALIKED + AdaLAM + COLMAP run with frozen calibration
-.scriptsun_aliked_adalam_colmap.ps1 -Frames 1000 -IncludeRight
+.\scripts\run_aliked_adalam_colmap.ps1 -Frames 1000 -IncludeRight
+
+# Custom calibration comparison (explicit opt-in)
+.\scripts\run_zed_tracking.ps1 -Mode GEN_1 -CalibrationMode custom -Profile calibration/profiles/zed2i_37395692_custom.yaml
+
+# Inspect local output state; pruning is dry-run unless explicitly selected
+underwater outputs inventory
+underwater outputs prune --dry-run
 
 # Core tests
 python -m pytest -q
@@ -96,6 +103,6 @@ The detailed procedures are in [docs/runbooks/zed_tracking.md](docs/runbooks/zed
 
 ## Data and version-control policy
 
-Large SVO recordings, videos, dense depth arrays, point clouds, build caches, and run outputs stay local and ignored. Existing local files are not removed by the refactor. Small JSON references under `validation/reference/20260802_150233/` preserve the numbers and provenance needed for regression without pretending that they are ground truth.
+Large SVO recordings, videos, dense depth arrays, point clouds, build caches, and run outputs stay local and ignored. Active runs belong under `outputs/`; reproducible disposable intermediates belong under `cache/`. Small JSON references under `validation/reference/20260802_150233/` preserve the numbers and provenance needed for regression without pretending that they are ground truth.
 
 The preserved third-party checkout has its own nested Git metadata and pre-existing local modifications. See [third_party/ORB_SLAM3_PROJECT_PATCHES.md](third_party/ORB_SLAM3_PROJECT_PATCHES.md).

@@ -1,6 +1,6 @@
 # Validation and reproducibility
 
-Phase 0 evidence is recorded in [REFACTOR_BASELINE.md](../REFACTOR_BASELINE.md) and [REFACTOR_INVENTORY.csv](../REFACTOR_INVENTORY.csv). Compact machine-readable anchors are under `validation/reference/20260802_150233/`. They contain source hashes, calibration values, rectification `P/Q` values, depth quantiles, SGBM settings, and the refractive audit status.
+Phase 0 evidence is recorded in the [project-migration archive](archive/project_migration/2026-09/README.md), including the [REFACTOR_BASELINE.md](archive/project_migration/2026-09/REFACTOR_BASELINE.md) and [REFACTOR_INVENTORY.csv](archive/project_migration/2026-09/REFACTOR_INVENTORY.csv). Compact machine-readable anchors are under `validation/reference/20260802_150233/`. They contain source hashes, calibration values, rectification `P/Q` values, depth quantiles, SGBM settings, and the refractive audit status.
 
 Run the deterministic checks with:
 

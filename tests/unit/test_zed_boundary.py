@@ -9,6 +9,7 @@ import pytest
 
 from underwater_binocular.calibration.loaders import load_calibration_profile
 from underwater_binocular.calibration.zed import compare_runtime_calibration
+from underwater_binocular.config.models import ZedSessionConfig
 from underwater_binocular.io.zed import ZedImagePair, ZedSession
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -93,3 +94,50 @@ def test_runtime_calibration_comparison_rejects_incomplete_distortion() -> None:
 
     with pytest.raises(RuntimeError, match="calibration mismatch"):
         compare_runtime_calibration(runtime, calibration)
+
+
+class _FakeInit:
+    def set_from_svo_file(self, path: str) -> None:
+        self.svo_path = path
+
+
+class _FakeSdkForInit:
+    InitParameters = _FakeInit
+    DEPTH_MODE = type("DepthMode", (), {"NEURAL": "neural"})
+    UNIT = type("Unit", (), {"METER": "meter"})
+    COORDINATE_SYSTEM = type("CoordinateSystem", (), {"RIGHT_HANDED_Y_UP": "y_up"})
+
+
+def test_native_session_does_not_set_custom_calibration_override(tmp_path: Path) -> None:
+    session = ZedSession(
+        tmp_path / "recording.svo2",
+        calibration_mode="native",
+        config=ZedSessionConfig(),
+    )
+    session._sl = _FakeSdkForInit
+
+    parameters = session._make_init_parameters()
+
+    assert not hasattr(parameters, "optional_opencv_calibration_file")
+
+
+def test_custom_session_sets_explicit_calibration_override(tmp_path: Path) -> None:
+    profile = tmp_path / "custom.yml"
+    profile.write_text("profile", encoding="utf-8")
+    session = ZedSession(
+        tmp_path / "recording.svo2",
+        profile,
+        calibration_mode="custom",
+        config=ZedSessionConfig(),
+    )
+    session._sl = _FakeSdkForInit
+
+    parameters = session._make_init_parameters()
+
+    assert parameters.optional_opencv_calibration_file == str(profile.resolve())
+
+
+def test_native_session_rejects_custom_expected_calibration(tmp_path: Path) -> None:
+    calibration = load_calibration_profile(ROOT / "calibration/profiles/zed2i_37395692_custom.yaml")
+    with pytest.raises(ValueError, match="native.*custom calibration"):
+        ZedSession(tmp_path / "recording.svo2", calibration_mode="native", expected_calibration=calibration)

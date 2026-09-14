@@ -16,7 +16,7 @@ import numpy as np
 
 from ..calibration.models import StereoCalibration
 from ..calibration.zed import compare_runtime_calibration, runtime_calibration_metadata
-from ..config.models import ZedSessionConfig
+from ..config.models import CalibrationMode, ZedSessionConfig
 
 
 class ZedDependencyError(RuntimeError):
@@ -97,15 +97,23 @@ class ZedSession:
     def __init__(
         self,
         svo_path: Path,
-        calibration_path: Path,
+        calibration_path: Path | None = None,
         config: ZedSessionConfig | None = None,
         *,
+        calibration_mode: CalibrationMode | str = CalibrationMode.CUSTOM,
         expected_calibration: StereoCalibration | None = None,
     ) -> None:
         self.svo_path = Path(svo_path).expanduser().resolve()
-        self.calibration_path = Path(calibration_path).expanduser().resolve()
+        self.calibration_mode = CalibrationMode.parse(calibration_mode)
+        self.calibration_path = (
+            None if calibration_path is None else Path(calibration_path).expanduser().resolve()
+        )
         self.config = config or ZedSessionConfig()
         self.config.validate()
+        if self.calibration_mode is CalibrationMode.NATIVE and expected_calibration is not None:
+            raise ValueError("native ZED sessions cannot compare against a custom calibration profile")
+        if self.calibration_mode is CalibrationMode.CUSTOM and self.calibration_path is None:
+            raise ValueError("custom ZED sessions require a calibration path")
         self.expected_calibration = expected_calibration
         self._sl: Any | None = None
         self._camera: Any | None = None
@@ -173,20 +181,21 @@ class ZedSession:
         init.coordinate_units = _enum_member(sl.UNIT, self.config.coordinate_units.upper())
         init.coordinate_system = _enum_member(sl.COORDINATE_SYSTEM, self.config.coordinate_system.upper())
         init.camera_disable_self_calib = bool(self.config.camera_disable_self_calib)
-        init.optional_opencv_calibration_file = str(self.calibration_path)
+        if self.calibration_mode is CalibrationMode.CUSTOM:
+            init.optional_opencv_calibration_file = str(self.calibration_path)
         init.depth_stabilization = int(self.config.depth_stabilization)
         if hasattr(init, "enable_image_enhancement"):
             init.enable_image_enhancement = bool(self.config.enable_image_enhancement)
         return init
 
     def open(self) -> ZedSession:
-        """Open the SVO with custom calibration and verify actual SDK values."""
+        """Open the SVO and verify the selected native or custom calibration policy."""
 
         if self.is_open:
             return self
         if not self.svo_path.is_file():
             raise FileNotFoundError(f"SVO not found: {self.svo_path}")
-        if not self.calibration_path.is_file():
+        if self.calibration_mode is CalibrationMode.CUSTOM and not self.calibration_path.is_file():
             raise FileNotFoundError(f"custom calibration not found: {self.calibration_path}")
         self._sl = import_zed()
         camera = self._sl.Camera()
@@ -195,12 +204,26 @@ class ZedSession:
         self._camera = camera
         try:
             self._runtime_metadata = runtime_calibration_metadata(camera.get_camera_information())
-            if self.expected_calibration is not None:
-                verification = compare_runtime_calibration(
-                    self._runtime_metadata,
-                    self.expected_calibration,
-                )
-                self._runtime_metadata["verification"] = verification
+            self._runtime_metadata["calibration_mode"] = self.calibration_mode.value
+            if self.calibration_mode is CalibrationMode.NATIVE:
+                self._runtime_metadata["calibration_source"] = "svo_embedded"
+                self._runtime_metadata["verification"] = {
+                    "status": "NOT_APPLICABLE",
+                    "reason": "native mode uses the calibration embedded in the SVO",
+                }
+            else:
+                self._runtime_metadata["calibration_source"] = str(self.calibration_path)
+                if self.expected_calibration is not None:
+                    verification = compare_runtime_calibration(
+                        self._runtime_metadata,
+                        self.expected_calibration,
+                    )
+                    self._runtime_metadata["verification"] = verification
+                else:
+                    self._runtime_metadata["verification"] = {
+                        "status": "NOT_REQUESTED",
+                        "reason": "custom profile was supplied without an expected calibration object",
+                    }
             runtime = self._make_runtime_parameters()
             self._runtime = runtime
         except Exception:

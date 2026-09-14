@@ -7,6 +7,7 @@ import json
 import platform
 import subprocess
 from collections.abc import Iterator
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -133,6 +134,11 @@ def _run_metadata(dataset: DatasetConfig, profile_path: Path, command: list[str]
         "platform": platform.platform(),
         "outputs": [],
         "status": "running",
+        "result_status": "experimental",
+        "purpose": "production",
+        "retain_policy": "keep",
+        "calibration_mode": "custom",
+        "calibration_source": "custom_profile",
         "sdk_runtime": session.runtime_metadata,
     }
 
@@ -147,7 +153,8 @@ def run_depth_export(args: Any) -> int:
     profile_path = dataset_config.calibration_profile
     profile = load_calibration_profile(profile_path)
     svo_path = dataset_config.resolve_svo_path(args.svo)
-    output_dir = (args.output or (root / "outputs" / f"{dataset_config.dataset_id}_zed_neural")).resolve()
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    output_dir = (args.output or (root / "outputs" / dataset_config.dataset_id / "depth" / run_id)).resolve()
     with ZedSession(svo_path, profile_path.parent.parent / "generated" / "zed_custom_opencv.yml", zed_config, expected_calibration=profile) as session:
         metadata = _run_metadata(dataset_config, profile_path, ["underwater", "depth", "export"], output_dir, session)
         (output_dir / "run.json").parent.mkdir(parents=True, exist_ok=True)
@@ -163,6 +170,7 @@ def run_depth_export(args: Any) -> int:
         metadata["outputs"] = [path.name for path in output_dir.iterdir() if path.is_file()]
         metadata["summary"] = summary
         metadata["status"] = "complete"
+        metadata["result_status"] = "complete"
         (output_dir / "run.json").write_text(json.dumps(metadata, indent=2, default=str) + "\n", encoding="utf-8")
     print(f"Depth export complete: {output_dir}")
     return 0

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "meaning": "historical ORB-SLAM3 output references; diagnostic/baseline evidence only",
+  "dataset": "20260802_150233",
+  "calibration_mode": "native",
+  "algorithm": "ORB-SLAM3",
+  "runs": [
+    {
+      "name": "slam__orbslam3__diagnostic_full__35855f__baseline",
+      "original_path": "output/20260802_150233_orbslam3_resampled/diagnostic_full",
+      "scope": "full35855",
+      "input_image_scale": 1.0,
+      "frames_processed": 35855,
+      "valid_pose_frames": 35855,
+      "valid_pose_ratio": 1.0,
+      "completed_to_svo_end": true,
+      "map_points_saved": true,
+      "source_files": [
+        {"path": "run_summary.txt", "sha256": "12af6f2371c7c1d27f2f789645a54672cb5da386f6f589768c791809e0e51d8"},
+        {"path": "run_metadata.txt", "sha256": "474c5021c069926c8ce0ed99e652cba5cf42db471d6392d621f77f8fa1a37215"}
+      ]
+    },
+    {
+      "name": "slam__orbslam3__stereo_halfres__35855f__baseline",
+      "original_path": "output/20260802_150233_orbslam3_stereo",
+      "scope": "full35855",
+      "input_image_scale": 0.5,
+      "processed_resolution": "960x540",
+      "frames_processed": 35855,
+      "valid_pose_frames": 32935,
+      "valid_pose_ratio": 0.9185608701715242,
+      "completed_to_svo_end": true,
+      "source_files": [
+        {"path": "run_summary.txt", "sha256": "63698c609f7cc69f83fc306666be787617965c56ba7e498eba9d31982a08294f"},
+        {"path": "run_metadata.txt", "sha256": "d2061a13132b5e2a541e29a24f07d93f201e4a387e231ab5ef956072c3c9fecb"}
+      ]
+    }
+  ],
+  "stale_inconsistent_run": {
+    "original_path": "output/20260802_150233_orbslam3_resampled/stable_map",
+    "declared_max_frames": 30248,
+    "observed_tracking_log_rows": 8802,
+    "status": "inconsistent",
+    "suggested_action": "archive_summary_only"
+  }
+}

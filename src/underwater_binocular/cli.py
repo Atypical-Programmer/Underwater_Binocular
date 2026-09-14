@@ -83,6 +83,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="GEN_1",
     )
     zed_tracking.add_argument("--profile", type=Path)
+    zed_tracking.add_argument(
+        "--calibration-mode",
+        choices=("native", "custom"),
+        default="native",
+        help="native uses calibration embedded in the SVO; custom uses the canonical profile",
+    )
     zed_tracking.add_argument("--zed-config", type=Path)
     zed_tracking.add_argument("--svo", type=Path)
     zed_tracking.add_argument("--start-frame", type=int, default=0)
@@ -163,6 +169,33 @@ def build_parser() -> argparse.ArgumentParser:
     colmap.add_argument("--colmap-executable", type=Path)
     colmap.add_argument("remainder", nargs=argparse.REMAINDER)
     colmap.set_defaults(handler=_handle_sfm_colmap)
+
+    outputs = commands.add_parser("outputs", help="inventory and conservatively prune local outputs")
+    outputs_commands = outputs.add_subparsers(dest="outputs_command", required=True)
+    inventory = outputs_commands.add_parser(
+        "inventory", help="scan output/, outputs/, and cache/ and emit JSON/CSV/Markdown reports"
+    )
+    inventory.add_argument("--repo", type=Path, default=repository_root())
+    inventory.add_argument("--output-dir", type=Path, default=repository_root())
+    inventory.add_argument(
+        "--no-hash-duplicates",
+        action="store_true",
+        help="skip hashes even for same-size duplicate candidates",
+    )
+    inventory.set_defaults(handler=_handle_outputs_inventory)
+    prune = outputs_commands.add_parser(
+        "prune", help="dry-run by default; apply only an explicit category or manifest"
+    )
+    prune.add_argument("--repo", type=Path, default=repository_root())
+    prune.add_argument("--apply", action="store_true", help="apply the explicit cleanup selection")
+    prune.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show the selected paths without changing files (the default)",
+    )
+    prune.add_argument("--category", choices=("empty",), help="narrow built-in selection")
+    prune.add_argument("--manifest", type=Path, help="JSON manifest containing exact relative paths")
+    prune.set_defaults(handler=_handle_outputs_prune)
     return parser
 
 
@@ -227,6 +260,7 @@ def _handle_tracking_zed(args: argparse.Namespace) -> int:
         args.dataset,
         mode=args.mode,
         output_dir=output,
+        calibration_mode=args.calibration_mode,
         svo_override=args.svo,
         profile_override=args.profile,
         zed_config_path=args.zed_config,
@@ -236,6 +270,33 @@ def _handle_tracking_zed(args: argparse.Namespace) -> int:
         enable_area_memory=args.area_memory,
     )
     print(f"Tracking completed: {output}")
+    return 0
+
+
+def _handle_outputs_inventory(args: argparse.Namespace) -> int:
+    from .outputs.inventory import build_inventory, write_inventory_reports
+
+    inventory = build_inventory(args.repo, hash_duplicates=not args.no_hash_duplicates)
+    paths = write_inventory_reports(inventory, args.output_dir)
+    print(json.dumps({"entries": inventory["entry_count"], "reports": [str(path) for path in paths]}, indent=2))
+    return 0
+
+
+def _handle_outputs_prune(args: argparse.Namespace) -> int:
+    from .outputs.inventory import prune_outputs
+
+    if args.apply and args.dry_run:
+        raise ValueError("--apply and --dry-run cannot be used together")
+    actions = prune_outputs(
+        args.repo,
+        apply=args.apply,
+        category=args.category,
+        manifest=args.manifest,
+    )
+    for action in actions:
+        print(action)
+    if not actions:
+        print("No paths selected.")
     return 0
 
 

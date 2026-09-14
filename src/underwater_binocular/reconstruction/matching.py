@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from typing import Any
 
@@ -192,8 +193,12 @@ def build_image_pairs(
                 pairs[pair] = f"stride_{side}"
     left_indices = by_side["left"]
     right_indices = by_side["right"]
+    right_frames = [int(records[index].frame) for index in right_indices]
     for left_index in left_indices:
-        for right_index in right_indices:
+        left_frame = int(records[left_index].frame)
+        first_right = bisect_left(right_frames, left_frame - stereo_window)
+        after_right = bisect_right(right_frames, left_frame + stereo_window)
+        for right_index in right_indices[first_right:after_right]:
             if abs(int(records[left_index].frame) - int(records[right_index].frame)) <= stereo_window:
                 pair = tuple(sorted((left_index, right_index)))
                 pairs[pair] = "synchronized_left_right"

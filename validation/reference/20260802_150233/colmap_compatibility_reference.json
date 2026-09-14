@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "executed_at": "2026-09-14T16:32:35Z",
+  "dataset": "20260802_150233",
+  "scope": "20 synchronized frame pairs / 40 images",
+  "pipeline": {
+    "feature_algorithm": "ALIKED",
+    "matcher_algorithm": "AdaLAM",
+    "camera_model": "FULL_OPENCV",
+    "calibration_mode": "frozen",
+    "calibration_profile": "calibration/profiles/zed2i_37395692_custom.yaml",
+    "device": "cuda:0",
+    "torch": "2.7.1+cu128",
+    "kornia": "0.8.1",
+    "lightglue": "0.0"
+  },
+  "colmap": {
+    "version": "3.11.1",
+    "commit": "682ea9a",
+    "build": "CUDA",
+    "executable": "D:/Underwater/Software/colmap-x64-windows-cuda/bin/colmap.exe",
+    "database_schema_imported": true,
+    "database_stats_after_import": {
+      "cameras": 2,
+      "images": 40,
+      "matches": 128,
+      "two_view_geometries": 128,
+      "verified_geometries_rows_ge_15": 128
+    },
+    "mapper": {"executed": true, "registered_images": 2, "points3D": 575},
+    "model_converter": {"executed": true, "text_model_written": true}
+  },
+  "source_run": {
+    "path": "outputs/20260802_150233/sfm/sfm__custom__aliked_adalam_colmap__20f__diagnostic/summary.json",
+    "size_bytes": 6139,
+    "sha256": "2e42eac49945b1ee43750925513ece46a2250b1654e017139bafde41f94d941f"
+  },
+  "interpretation": "Compatibility PASS: importer accepted the database after FULL_OPENCV parameters were padded to COLMAP's 12-parameter schema. The small mapper result is an integration smoke result, not a production reconstruction."
+}

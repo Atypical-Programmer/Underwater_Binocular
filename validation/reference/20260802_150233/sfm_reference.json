@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "meaning": "historical ALIKED + AdaLAM + COLMAP behavioral reference; arbitrary local SfM scale",
+  "dataset": "20260802_150233",
+  "calibration_mode": "frozen",
+  "algorithm": "ALIKED + AdaLAM + COLMAP",
+  "primary": {
+    "name": "sfm__custom__aliked_adalam__2000f__PRIMARY",
+    "original_path": "output/20260802_150233_sample1000/sfm_aliked_adalam_2000_full_opencv_refined",
+    "images": 2000,
+    "left_images": 1000,
+    "right_images": 1000,
+    "total_keypoints": 1212518,
+    "candidate_pairs": 12950,
+    "accepted_pairs": 9567,
+    "raw_matches": 2644629,
+    "verified_geometries_ge_15": 9153,
+    "registered_images": 1448,
+    "points3D": 136707,
+    "purpose": "baseline",
+    "result_status": "complete",
+    "retain_policy": "keep_summary",
+    "source_summary": {"path": "run_summary.json", "size_bytes": 1982, "sha256": "01bf01a4fa380d6d219e41b5a16b805262f62b15baa8bf67fd31559b025c1be4"}
+  },
+  "secondary": {
+    "name": "sfm__custom__aliked_adalam__100f__reference",
+    "original_path": "output/20260802_150233_sample1000/sfm_aliked_adalam_100_full_opencv_refined",
+    "images": 100,
+    "candidate_pairs": 99,
+    "accepted_pairs": 99,
+    "raw_matches": 51805,
+    "verified_geometries_ge_15": 99,
+    "registered_images": 100,
+    "points3D": 12887,
+    "purpose": "reference",
+    "result_status": "complete",
+    "source_summary": {"path": "run_summary.json", "size_bytes": 0, "sha256": null}
+  },
+  "incomplete_experiment": {
+    "original_path": "output/20260802_150233_sample1000/sfm_aliked_adalam_1000_full_opencv_refined",
+    "images": 1000,
+    "candidate_pairs": 999,
+    "accepted_pairs": 835,
+    "raw_matches": 387677,
+    "verified_geometries_ge_15": 835,
+    "registered_images": null,
+    "points3D": null,
+    "status": "incomplete_no_run_summary_or_sparse_model"
+  }
+}

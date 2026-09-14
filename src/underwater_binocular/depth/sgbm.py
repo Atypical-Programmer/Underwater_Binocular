@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import platform
 import subprocess
+from datetime import datetime, timezone
 from typing import Any
 
 import cv2
@@ -117,7 +118,8 @@ def run_sgbm_export(args: Any) -> int:
     profile_path = dataset_config.calibration_profile
     calibration = load_calibration_profile(profile_path)
     svo_path = dataset_config.resolve_svo_path(args.svo)
-    output_dir = (args.output or (root / "outputs" / f"{dataset_config.dataset_id}_sgbm")).resolve()
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    output_dir = (args.output or (root / "outputs" / dataset_config.dataset_id / "depth" / run_id)).resolve()
     zed_config = ZedSessionConfig(depth_mode="NONE")
     rows: list[dict[str, Any]] = []
     with ZedSession(svo_path, profile_path.parent.parent / "generated" / "zed_custom_opencv.yml", zed_config, expected_calibration=calibration) as session:
@@ -160,6 +162,11 @@ def run_sgbm_export(args: Any) -> int:
         "software_versions": {"underwater_binocular": __version__, "python": platform.python_version()},
         "outputs": ["summary.json"],
         "status": "complete",
+        "result_status": "complete",
+        "purpose": "diagnostic",
+        "retain_policy": "disposable",
+        "calibration_mode": "custom",
+        "calibration_source": "custom_profile",
     }
     (output_dir / "run.json").write_text(json.dumps(run, indent=2) + "\n", encoding="utf-8")
     print(f"SGBM diagnostic export complete: {output_dir}")

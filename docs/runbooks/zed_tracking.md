@@ -15,6 +15,18 @@ Tracking success is not the same as a physically accurate trajectory. Always ins
 
 The dataset config can read `UNDERWATER_SVO_PATH`, or an explicit `--svo` can override it. On Windows, set `ZED_SDK_ROOT_DIR` if the vendor DLLs are not already discoverable.
 
+## Calibration modes
+
+The recommended mode is `native`. It opens the SVO without setting
+`optional_opencv_calibration_file`, so the SDK uses calibration embedded in
+the recording. Runtime metadata records the embedded calibration and mode.
+
+Use `custom` only for an explicit comparison or a controlled custom-calibration
+experiment. It requires the canonical profile, passes the derived OpenCV
+calibration file to the SDK, and verifies the SDK's raw runtime calibration
+against the profile. A profile is rejected in native mode rather than inferred
+or silently applied.
+
 ## Quick start
 
 ```powershell
@@ -22,11 +34,13 @@ $env:UNDERWATER_SVO_PATH = '<absolute-path-to-recording.svo2>'
 
 underwater tracking zed `
   --dataset configs/datasets/20260802_150233.yaml `
-  --mode GEN_1
+  --mode GEN_1 `
+  --calibration-mode native
 
 underwater tracking zed `
   --dataset configs/datasets/20260802_150233.yaml `
   --mode GEN_3 `
+  --calibration-mode native `
   --max-frames 300
 ```
 
@@ -36,6 +50,7 @@ Equivalent thin wrappers are:
 .\scripts\run_zed_tracking.ps1 -Mode GEN_1
 .\scripts\run_zed_tracking.ps1 -Mode GEN_3 -MaxFrames 1000
 .\scripts\run_zed_tracking.ps1 -Mode BOTH -MaxFrames 300
+.\scripts\run_zed_tracking.ps1 -Mode GEN_1 -CalibrationMode custom -Profile calibration/profiles/zed2i_37395692_custom.yaml
 ```
 
 Use `--start-frame`, `--end-frame`, and `--max-frames` to select a range. Seeking is permitted only before tracking starts; the range itself is then consumed consecutively with one `grab()` per frame.
@@ -91,8 +106,8 @@ Look for:
 - large discontinuities in `trajectory.csv`;
 - a `status` of `completed` in `run.json`.
 
-Common failures are missing `pyzed.sl`, missing SVO, missing calibration, unsupported tracking mode, SDK calibration mismatch, and non-success SDK status codes. These fail loudly and leave a failed `run.json` when the run directory has already been created.
+Common failures are missing `pyzed.sl`, missing SVO, missing custom calibration in custom mode, unsupported tracking mode, SDK calibration mismatch, and non-success SDK status codes. These fail loudly and leave a failed `run.json` when the run directory has already been created.
 
 ## Reproducibility and limitations
 
-`run.json` records the dataset config, SVO identity, SDK version, camera identity when available, custom calibration path/hash, tracking settings, frame range, coordinate convention, software version, and Git SHA. The world origin is supplied by the ZED tracker and the trajectory is local; it is not georeferenced or independently proven to be metric underwater truth.
+`run.json` records the dataset config, SVO identity, SDK version, camera identity when available, calibration mode/source, and—only for custom runs—the profile path/hash and runtime verification. It also records tracking settings, frame range, coordinate convention, software version, and Git SHA. The world origin is supplied by the ZED tracker and the trajectory is local; it is not georeferenced or independently proven to be metric underwater truth.

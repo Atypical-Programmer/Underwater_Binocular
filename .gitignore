@@ -57,6 +57,10 @@ Calibration/**/rect_line_*.png
 # ------------------------------
 /output/
 /outputs/
+/cache/
+outputs_inventory.json
+outputs_inventory.csv
+outputs_inventory.md
 *.mp4
 *.avi
 *.mov

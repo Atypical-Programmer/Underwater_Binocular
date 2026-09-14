@@ -4,8 +4,25 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
+
+
+class CalibrationMode(str, Enum):
+    """How a ZED session obtains stereo calibration."""
+
+    NATIVE = "native"
+    CUSTOM = "custom"
+
+    @classmethod
+    def parse(cls, value: CalibrationMode | str) -> CalibrationMode:
+        if isinstance(value, cls):
+            return value
+        try:
+            return cls(str(value).strip().lower())
+        except ValueError as error:
+            raise ValueError("calibration mode must be native or custom") from error
 
 
 def _resolution(value: Any) -> tuple[int, int]:

@@ -174,7 +174,7 @@ def write_colmap_camera_config(
             return base
         if camera_model == "OPENCV":
             return [*base, *camera.distortion[:4]]
-        return [*base, *camera.distortion[:8]]
+        return [*base, *camera.distortion[:8], *([0.0] * max(0, 8 - len(camera.distortion)))]
 
     width, height = profile.resolution
     value = {

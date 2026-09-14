@@ -23,7 +23,9 @@ def _camera_params(calibration: StereoCalibration, side: str, camera_model: str)
     if camera_model == "OPENCV":
         return [*base, *camera.distortion[:4]]
     if camera_model == "FULL_OPENCV":
-        return [*base, *camera.distortion[:8]]
+        # COLMAP FULL_OPENCV has eight distortion parameters (k1, k2, p1,
+        # p2, k3, k4, k5, k6). Missing rational terms are explicitly zero.
+        return [*base, *camera.distortion[:8], *([0.0] * max(0, 8 - len(camera.distortion)))]
     raise ValueError(f"unsupported COLMAP camera model: {camera_model}")
 
 
