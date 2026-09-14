@@ -10,7 +10,9 @@ from typing import Any
 
 from ..calibration.conversion import write_colmap_camera_config
 from ..calibration.loaders import load_calibration_profile
+from ..calibration.models import StereoCalibration
 from .colmap_database import database_stats
+from .stereo_planar import build_calibrated_stereo_planar_model
 
 
 def find_colmap_executable(executable: Path | None = None) -> Path:
@@ -166,8 +168,12 @@ def run_colmap_pipeline(
     init_min_num_inliers: int = 50,
     init_min_tri_angle: float = 2.0,
     threads: int = 8,
+    calibration: StereoCalibration | None = None,
+    calibrated_stereo_planar: bool = False,
+    stereo_max_reprojection_error: float = 8.0,
+    stereo_motion_ransac_threshold_m: float = 0.12,
 ) -> dict[str, Any]:
-    """Import AdaLAM matches, run mapper, and export a text model summary."""
+    """Import AdaLAM matches and run the selected COLMAP-compatible mapping path."""
 
     executable = find_colmap_executable(colmap_executable)
     for required in (image_dir, database_path, match_path):
@@ -187,6 +193,73 @@ def run_colmap_pipeline(
     )
     _run_logged(importer, logs_dir / "matches_importer.log")
     imported_stats = database_stats(database_path)
+    if calibrated_stereo_planar:
+        if calibration is None:
+            raise ValueError("calibrated_stereo_planar requires a stereo calibration")
+        planar_text_path = sparse_dir / "calibrated_stereo_planar_text"
+        planar_model_path = sparse_dir / "calibrated_stereo_planar"
+        if planar_text_path.exists():
+            shutil.rmtree(planar_text_path)
+        if planar_model_path.exists():
+            shutil.rmtree(planar_model_path)
+        planar_model_path.mkdir(parents=True, exist_ok=True)
+        stereo_summary = build_calibrated_stereo_planar_model(
+            database_path,
+            planar_text_path,
+            calibration=calibration,
+            max_stereo_reprojection_error=stereo_max_reprojection_error,
+            motion_ransac_threshold_m=stereo_motion_ransac_threshold_m,
+        )
+        stereo_summary_path = colmap_dir / "calibrated_stereo_planar_summary.json"
+        stereo_summary_path.write_text(
+            json.dumps(stereo_summary, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        converter = [
+            str(executable),
+            "model_converter",
+            "--input_path",
+            str(planar_text_path),
+            "--output_path",
+            str(planar_model_path),
+            "--output_type",
+            "BIN",
+        ]
+        _run_logged(converter, logs_dir / "calibrated_stereo_model_converter.log")
+        analyzer = [
+            str(executable),
+            "model_analyzer",
+            "--path",
+            str(planar_model_path),
+        ]
+        _run_logged(analyzer, logs_dir / "calibrated_stereo_model_analyzer.log")
+        text_model_path = planar_text_path
+        model_summary = {
+            "model_path": str(planar_model_path),
+            "text_model_path": str(text_model_path),
+            "model_dirs": [str(planar_model_path)],
+            "mapping_method": "calibrated_stereo_planar",
+            **_model_counts(text_model_path),
+        }
+        result = {
+            "status": "completed",
+            "executable": str(executable),
+            "calibration_mode": "frozen",
+            "mapping_method": "calibrated_stereo_planar",
+            "scale": "metric scale from the canonical calibrated stereo baseline; subject to calibration accuracy",
+            "database_stats_after_import": imported_stats,
+            "model": model_summary,
+            "calibrated_stereo": stereo_summary,
+            "commands": {
+                "matches_importer": importer,
+                "model_converter": converter,
+                "model_analyzer": analyzer,
+            },
+        }
+        (colmap_dir / "model_summary.json").write_text(
+            json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        return result
     mapper = build_colmap_mapper_command(
         executable,
         database_path,

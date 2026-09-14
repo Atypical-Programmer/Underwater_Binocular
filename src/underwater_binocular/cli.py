@@ -150,6 +150,23 @@ def build_parser() -> argparse.ArgumentParser:
     aliked_colmap.add_argument("--init-min-num-inliers", type=int, default=50)
     aliked_colmap.add_argument("--init-min-tri-angle", type=float, default=2.0)
     aliked_colmap.add_argument(
+        "--calibrated-stereo-planar",
+        action="store_true",
+        help="use known synchronized stereo geometry for near-planar scenes and write a complete COLMAP model",
+    )
+    aliked_colmap.add_argument(
+        "--stereo-max-reprojection-error",
+        type=float,
+        default=8.0,
+        help="maximum per-camera reprojection error for calibrated stereo points (pixels)",
+    )
+    aliked_colmap.add_argument(
+        "--stereo-motion-ransac-threshold-m",
+        type=float,
+        default=0.12,
+        help="3-D rigid-motion RANSAC threshold between adjacent selected frames (meters)",
+    )
+    aliked_colmap.add_argument(
         "--skip-colmap",
         action="store_true",
         help="stop after writing the custom-feature/match database; mark COLMAP NOT EXECUTED",
@@ -334,6 +351,9 @@ def _handle_sfm_aliked_colmap(args: argparse.Namespace) -> int:
         mapper_min_num_matches=args.mapper_min_num_matches,
         init_min_num_inliers=args.init_min_num_inliers,
         init_min_tri_angle=args.init_min_tri_angle,
+        calibrated_stereo_planar=args.calibrated_stereo_planar,
+        stereo_max_reprojection_error=args.stereo_max_reprojection_error,
+        stereo_motion_ransac_threshold_m=args.stereo_motion_ransac_threshold_m,
         skip_colmap=args.skip_colmap,
         resume=args.resume,
     )

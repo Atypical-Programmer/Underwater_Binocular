@@ -16,6 +16,40 @@ SVO raw images
 
 `ALIKED ≠ ORB` and `AdaLAM ≠ BFMatcher`. Missing optional dependencies are errors; the workflow never silently falls back to ORB or BFMatcher.
 
+## Near-planar scenes: calibrated stereo mapping
+
+For a scene dominated by a plane, ordinary incremental COLMAP can choose a
+planar two-view model during initialization and then fail to recover a stable
+camera pose for the remaining images. A near-planar scene is not invalid data;
+the synchronized ZED baseline supplies the missing metric stereo constraint.
+
+Pass `--calibrated-stereo-planar` (enabled by the dedicated 1000-frame
+PowerShell script) to use that path. It keeps the raw ALIKED/AdaLAM matches,
+triangulates each synchronized left/right pair with the canonical profile,
+estimates adjacent-frame rigid motion from the resulting 3-D correspondences,
+and writes all paired images as registered COLMAP images. COLMAP's
+`model_converter` and `model_analyzer` then validate the generated model; this
+mode does not call the ordinary incremental `mapper`.
+
+```powershell
+underwater sfm aliked-colmap `
+  --dataset configs/datasets/20260802_150233.yaml `
+  --svo 20260802_150233.svo2 `
+  --profile calibration/profiles/zed2i_37395692_custom.yaml `
+  --num-frames 1000 --start-frame 0 --end-frame 999 `
+  --include-right --device cuda --freeze-calibration `
+  --calibrated-stereo-planar `
+  --stereo-max-reprojection-error 8 `
+  --stereo-motion-ransac-threshold-m 0.12
+```
+
+The generated model is under
+`colmap/sparse/calibrated_stereo_planar/`, with a text copy under
+`colmap/sparse/calibrated_stereo_planar_text/`. The output metadata records
+the stereo baseline as the scale source. The scale is therefore metric
+relative to the supplied calibration, but absolute underwater accuracy still
+depends on calibration and camera/housing physics.
+
 ## Dependencies
 
 Install the package and SfM extra in the project environment:
@@ -124,7 +158,7 @@ unique historical databases/models.
 
 Custom ALIKED float descriptors remain in `features/*.npz`. COLMAP's legacy SIFT-shaped descriptor column is an inert uint8 storage slot because raw AdaLAM matches are imported explicitly; COLMAP native feature extraction is never run and cannot overwrite the custom feature stage. The database contains the intended custom keypoints and, after `matches_importer`, custom raw matches and verified two-view geometries.
 
-When `--skip-colmap` is passed, the command stops before any external executable and inserts the accepted custom matches directly into `colmap/database.db`; the summary says `NOT_EXECUTED` for COLMAP. Without that flag, the command runs `matches_importer`, then `mapper`, then `model_converter`, with logs under `colmap/logs/`. A missing executable or mapper failure is an explicit error.
+When `--skip-colmap` is passed, the command stops before any external executable and inserts the accepted custom matches directly into `colmap/database.db`; the summary says `NOT_EXECUTED` for COLMAP. Without that flag, the command runs `matches_importer`, then either the ordinary `mapper` or the calibrated-stereo planar writer selected above, followed by `model_converter` and `model_analyzer`; logs are under `colmap/logs/`. A missing executable or mapping/conversion failure is an explicit error.
 
 ## Output structure
 
@@ -157,7 +191,13 @@ outputs/<dataset>/sfm/<run-id>/
 
 ## Scale and scientific limitations
 
-Ordinary COLMAP SfM output is a local reconstruction with arbitrary scale unless a valid external scale or rig constraint is actually applied. Simultaneous left/right image input alone does not prove physical underwater metric scale. These outputs cannot establish that the custom SDK depth near 2.2 m is ground truth, and they do not justify a blanket `×1.333` correction.
+Ordinary COLMAP SfM output is a local reconstruction with arbitrary scale
+unless a valid external scale or rig constraint is actually applied. The
+calibrated-stereo planar path does apply the canonical left/right baseline, so
+its written model is metric relative to that calibration. Neither path by
+itself establishes physical underwater accuracy: these outputs cannot prove
+that the custom SDK depth near 2.2 m is ground truth, and they do not justify a
+blanket `×1.333` correction.
 
 ## Troubleshooting
 

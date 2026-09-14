@@ -8,6 +8,9 @@
     defaults mirror the validated large SfM setup: ALIKED aliked-n16,
     1024-pixel resize, 800 keypoints, temporal window 5, extra stride 10,
     source-frame stereo window 40, frozen FULL_OPENCV calibration, and COLMAP.
+    Calibrated stereo planar mapping is enabled by default because this dataset
+    is dominated by a near-planar scene; disable it with
+    -CalibratedStereoPlanar:$false to use the ordinary incremental mapper.
 
     Run this script from any directory. Relative paths are resolved from the
     repository root (the parent directory of this script).
@@ -58,6 +61,9 @@ param(
     [int]$MapperMinNumMatches = 15,
     [int]$InitMinNumInliers = 50,
     [double]$InitMinTriAngle = 2.0,
+    [bool]$CalibratedStereoPlanar = $true,
+    [double]$StereoMaxReprojectionError = 8.0,
+    [double]$StereoMotionRansacThresholdM = 0.12,
     [switch]$LeftOnly,
     [switch]$RefineCalibration,
     [switch]$SkipColmap,
@@ -96,8 +102,14 @@ $cliArgs = @(
     "--min-model-size", $MinModelSize,
     "--mapper-min-num-matches", $MapperMinNumMatches,
     "--init-min-num-inliers", $InitMinNumInliers,
-    "--init-min-tri-angle", $InitMinTriAngle
+    "--init-min-tri-angle", $InitMinTriAngle,
+    "--stereo-max-reprojection-error", $StereoMaxReprojectionError,
+    "--stereo-motion-ransac-threshold-m", $StereoMotionRansacThresholdM
 )
+
+if ($CalibratedStereoPlanar) {
+    $cliArgs += "--calibrated-stereo-planar"
+}
 
 if (-not [string]::IsNullOrWhiteSpace($Svo)) {
     $cliArgs += @("--svo", $Svo)

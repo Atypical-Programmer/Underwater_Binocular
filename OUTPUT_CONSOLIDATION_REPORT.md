@@ -1,7 +1,7 @@
 # 当前输出与运行状态汇总
 
 数据集：`20260802_150233`
-统计时间（UTC）：2026-09-14T16:40:58.9471300Z
+统计时间（UTC）：2026-09-14T20:24:47.8472940Z
 
 这份报告是当前输出树的唯一入口。运行产物本身保持本地忽略；可提交到 Git 的是本报告、清单、摘要和验证锚点。历史报告已移到 [`docs/archive/project_migration/2026-09/`](docs/archive/project_migration/2026-09/)，旧版 `output/` 已完成迁移、清理并删除。
 
@@ -13,6 +13,7 @@
 - ALIKED + AdaLAM + 外部 COLMAP 的 20 对/40 图像兼容性审计为 **PASS**。首次审计暴露的 `FULL_OPENCV` 参数数量错误已修复为 COLMAP 所需的 12 参数。
 - custom ZED SDK 深度的中心估计约为 2.204 m，是可复现的运行产品，不是独立的水下物理真值；不自动乘以 `1.333`。
 - 折射参数 `R1` 仍为 `NOT_IDENTIFIABLE`，因为缺少端口/壳体几何、介质折射率、界面平面和独立 metric ground truth。
+- 近似平面场景的正式 SfM 已切换到显式标定双目路径：`2000/2000` 图像注册、`80,072` 个 3D 点；平面几何不再被当作失败条件。
 
 ## 容量与清理结果
 
@@ -20,11 +21,11 @@
 |---|---:|---:|---|
 | 清理前旧 `output/` | 8,833 | 32,562,536,067 | 只读基线，约 30.33 GiB |
 | 明确删除的文件/文件集 | 6,572 | 25,486,542,015 | 不含目录重复计数；六个空目录也已删除 |
-| 当前正式 `outputs/20260802_150233/` | 177 | 1,450,095,229 | 当前结果与兼容性审计 |
+| 当前正式 `outputs/20260802_150233/` | 4,237 | 8,917,735,498 | 当前结果与兼容性审计 |
 | 本地历史归档 `outputs/_archive/legacy-2026-09-14/` | 250 | 556,075,999 | 保留摘要、轨迹、元数据和必要对照；被 `.gitignore` 忽略 |
-| 当前 `outputs/` 合计 | 427 | 2,006,171,228 | 正式结果 + 本地历史归档 |
+| 当前 `outputs/` 合计 | 4,487 | 9,473,811,497 | 正式结果 + 本地历史归档 |
 | 可复用图像 `cache/20260802_150233/` | 2,000 | 5,207,272,369 | sample1000 左右图像缓存；可重建、不可提交 |
-| `outputs/` + `cache/` 本地合计 | 2,427 | 7,213,443,597 | 仍在本机的运行相关数据 |
+| `outputs/` + `cache/` 本地合计 | 6,487 | 14,681,083,866 | 仍在本机的运行相关数据 |
 
 删除字节是对 [`OUTPUT_DELETE_MANIFEST.md`](OUTPUT_DELETE_MANIFEST.md) 中各文件/文件集的求和，不包含父目录递归大小，因此没有重复计算。归档不是“释放空间”，而是把仍有证据价值的历史结果从旧目录重新组织；可删除性由清单和 README 约束。
 
@@ -42,11 +43,12 @@
 | `pointcloud/pointcloud__custom__zed_sdk__1000mapped__reference` | `complete` | 75,885,506 点；PLY 1,138,282,772 bytes；1,000 个 mapping 帧；校准/PLY/映射计数校验通过 | custom SDK 点云参考；保留原始运行中的轨迹质量警示 |
 | `slam/slam__orbslam3__diagnostic_full__35855f__baseline` | `complete` | 35,855 帧；35,855 有效位姿；到 SVO 末尾；已保存地图点 | ORB-SLAM3 全量诊断基线 |
 | `slam/slam__orbslam3__stereo_halfres__35855f__baseline` | `complete` | 960×540；35,855 帧；32,935 有效位姿（91.8561%） | ORB-SLAM3 半分辨率对照 |
-| `sfm/sfm__custom__aliked_adalam__2000f__PRIMARY` | `complete` | 2,000 图；1,212,518 keypoints（历史摘要）；12,950 候选对；9,567 接受对；1,448 registered images；136,707 points3D | 主 SfM 结果，任意局部尺度 |
+| `sfm/sfm__custom__aliked_adalam__1000f__PRIMARY` | `completed` | 1,000 源帧、2,000 图；1,600,000 keypoints；14,948 候选/接受对；标定双目平面模型 2,000/2,000 registered images；80,072 points3D；平均重投影误差 2.130112 px | 当前主 SfM 结果；尺度来自 canonical stereo baseline，绝对水下物理精度仍需独立验证 |
+| `sfm/sfm__custom__aliked_adalam__2000f__PRIMARY` | `complete` | 2,000 图；1,212,518 keypoints（历史摘要）；12,950 候选对；9,567 接受对；1,448 registered images；136,707 points3D | 历史普通增量 SfM 对照，任意局部尺度 |
 | `sfm/sfm__custom__aliked_adalam__100f__reference` | `complete` | 100 图；99 接受/验证对；100 registered images；12,887 points3D | 次级复现参考 |
 | `sfm/sfm__custom__aliked_adalam_colmap__20f__diagnostic` | `completed` | 40 图；32,000 keypoints；128 对；128 verified geometries；2 registered images；575 points3D；模型已转 TXT | 外部 COLMAP 兼容性审计，非生产重建 |
 
-> 注：主/次级 SfM 的 local scale 未经过外部 metric 约束。
+> 注：历史普通增量主/次级 SfM 的 local scale 未经过外部 metric 约束；当前 `1000f__PRIMARY` 使用 canonical stereo baseline，因此仅对该模型记录“相对标定的 metric scale”。
 
 正式结果的摘要和轨迹文件仍保留历史 lineage 路径；这些路径明确指向旧 `output/` 来源，便于审计，不代表旧目录仍存在。
 
@@ -93,6 +95,8 @@
 - 新增 `underwater outputs inventory`：输出 JSON/CSV/Markdown 清单，记录大小、文件数、数据集、类别、状态、用途、保留策略、摘要/run 元数据、二进制提示和建议动作。
 - 新增 `underwater outputs prune --dry-run`：默认不删除；`--apply` 必须显式指定 `--category empty` 或精确 JSON manifest，并拒绝递归删除非空目录。
 - stereo matching 将同步左右帧配对从无界的左×右扫描改为排序帧窗口查找；专用 1000 帧脚本默认 `StereoWindow=40`，保留 pair policy 和回归测试。
+- 新增显式 `calibrated_stereo_planar` 映射：用 canonical 左右外参三角化同步双目，再用相邻帧 3-D 刚体运动写出完整 COLMAP 模型；不会调用普通 incremental `mapper`。
+- 修复 Windows COLMAP `model_converter` 的目标目录创建问题；旧失败 `colmap/sparse/0` 保留，新的模型位于 `colmap/sparse/calibrated_stereo_planar/`。
 - `.gitignore` 现在忽略 `/output/`、`/outputs/`、`/cache/`、大型二进制和 inventory 生成物；不会把本地运行数据上传到 GitHub。
 - 原始 SVO `20260802_150233.svo2`、canonical calibration/profile、`calibration/source/` 和现有 `third_party/ORB_SLAM3` checkout 均未删除；后者的既有嵌套工作区改动也未触碰。
 
@@ -102,7 +106,7 @@
 |---:|---|---|
 | 1 | tracking native/custom 分离 | PASS；默认 native，custom 显式 opt-in；`test_zed_boundary.py` |
 | 2 | stereo pair 性能 | PASS；排序窗口查找；1000 帧脚本默认 `StereoWindow=40`；`test_reconstruction_workflow.py` |
-| 3 | COLMAP 兼容 | PASS；外部 3.11.1 importer/mapper/converter 全链路 |
+| 3 | COLMAP 兼容 | PASS；外部 3.11.1 importer/converter/analyzer 全链路；标定双目模型 2,000/2,000 |
 | 4 | 新输出布局 | PASS；`outputs/<dataset>/<category>/<run-id>`；旧 `output/` 不存在 |
 | 5 | 只读基线 | PASS；8,833 files / 32,562,536,067 bytes 已归档 |
 | 6 | inventory/prune | PASS；清单命令可运行，prune 默认 dry-run 且无 selector 不允许 apply |
@@ -119,7 +123,7 @@
 | 17 | cache 忽略策略 | PASS；`/cache/` 在 `.gitignore` |
 | 18 | validation refs | PASS；12 个紧凑 reference 文件/README 已跟踪 |
 | 19 | 统一 run metadata | PASS；正式 run.json 有 status/result/purpose/retain/dataset 等字段 |
-| 20 | 自动检查 | PASS；全量 pytest 38 项、ruff、compileall 均通过 |
+| 20 | 自动检查 | PASS；全量 pytest 40 项、ruff、compileall 均通过 |
 | 21 | 当前 ZED 新 replay | `NOT EXECUTED`；当前 conda 环境无 `pyzed.sl`；历史 ZED 结果只作为已标注 baseline/reference |
 | 22 | 原始输入安全 | PASS；SVO、校准源和第三方 checkout 未删除 |
 | 23 | 技术债 | 已记录：vendor SDK 依赖、COLMAP 审计仅 20 对、SfM 任意尺度、R1 缺少物理参数 |

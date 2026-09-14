@@ -499,6 +499,9 @@ def run_aliked_colmap(
     mapper_min_num_matches: int = 15,
     init_min_num_inliers: int = 50,
     init_min_tri_angle: float = 2.0,
+    calibrated_stereo_planar: bool = False,
+    stereo_max_reprojection_error: float = 8.0,
+    stereo_motion_ransac_threshold_m: float = 0.12,
     skip_colmap: bool = False,
     resume: bool = True,
     purpose: str | None = None,
@@ -537,6 +540,12 @@ def run_aliked_colmap(
         raise ValueError("purpose must be production, baseline, diagnostic, smoke, or ablation")
     if effective_retain_policy not in {"keep", "keep_summary", "archive", "disposable"}:
         raise ValueError("retain_policy must be keep, keep_summary, archive, or disposable")
+    mapping_method = "calibrated_stereo_planar" if calibrated_stereo_planar else "incremental_mapper"
+    scale_description = (
+        "metric scale from the canonical calibrated stereo baseline; subject to calibration accuracy"
+        if calibrated_stereo_planar
+        else "arbitrary local SfM scale unless externally constrained"
+    )
     run_metadata: dict[str, Any] = {
         "status": "running",
         "result_status": "experimental",
@@ -569,8 +578,14 @@ def run_aliked_colmap(
         "zed_opencv_calibration_sha256": sha256_file(zed_calibration_path),
         "calibration_mode": "frozen" if freeze_calibration else "refined",
         "colmap_camera_model": camera_model.upper(),
+        "mapping_method": mapping_method,
+        "calibrated_stereo_planar": {
+            "enabled": bool(calibrated_stereo_planar),
+            "max_reprojection_error_px": float(stereo_max_reprojection_error),
+            "motion_ransac_threshold_m": float(stereo_motion_ransac_threshold_m),
+        },
         "colmap_executable": str(colmap_executable) if colmap_executable else None,
-        "scale": "arbitrary local SfM scale unless externally constrained",
+        "scale": scale_description,
         "git_sha": _git_sha(),
         "started_at_utc": started_at,
         "software": _runtime_software(),
@@ -667,6 +682,10 @@ def run_aliked_colmap(
                 init_min_num_inliers=init_min_num_inliers,
                 init_min_tri_angle=init_min_tri_angle,
                 threads=colmap_threads,
+                calibration=calibration,
+                calibrated_stereo_planar=calibrated_stereo_planar,
+                stereo_max_reprojection_error=stereo_max_reprojection_error,
+                stereo_motion_ransac_threshold_m=stereo_motion_ransac_threshold_m,
             )
         model = colmap_result.get("model", {})
         summary: dict[str, Any] = {
@@ -682,7 +701,8 @@ def run_aliked_colmap(
             "mean_track_length": None,
             "mean_reprojection_error": None,
             "calibration_mode": "frozen" if freeze_calibration else "refined",
-            "scale": run_metadata["scale"],
+            "mapping_method": mapping_method,
+            "scale": scale_description,
             "feature_summary": feature_summary,
             "matching_summary": {
                 key: value for key, value in match_summary.items() if key != "pairs"
