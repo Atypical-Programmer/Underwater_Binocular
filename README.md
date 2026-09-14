@@ -20,6 +20,12 @@ underwater calibration generate
 python -m pytest -q tests
 ```
 
+For the ALIKED + AdaLAM workflow, install the optional SfM dependencies too:
+
+```powershell
+python -m pip install -e ".[dev,sfm]"
+```
+
 The ZED SDK is a vendor installation, not a PyPI dependency. Set `ZED_SDK_ROOT_DIR` when running SDK-backed commands. Set `UNDERWATER_SVO_PATH` for the local recording, or pass `--svo` explicitly. No machine-specific path is embedded in a tracked config.
 
 ## Repository map
@@ -51,6 +57,42 @@ X_right = R_left_to_right @ X_left + t_left_to_right
 Raw distorted images are `RAW_UNRECTIFIED`; OpenCV/ZED rectified images are `RECTIFIED`. The ZED session is opened once through `io.zed.ZedSession`, with custom calibration verification after opening. Depth consumers receive the common `DepthFrame` model, whether the engine is ZED `MEASURE.DEPTH` or OpenCV StereoSGBM.
 
 Read [docs/architecture.md](docs/architecture.md) for the topology, [docs/depth_pipeline.md](docs/depth_pipeline.md) for depth semantics, and [docs/validation.md](docs/validation.md) for reproducibility and scientific guardrails.
+
+## Capabilities
+
+| Capability | Recommended command | Status | Main dependency |
+|---|---|---|---|
+| Calibration | `underwater calibration validate` | Stable | core package |
+| ZED SDK depth | `underwater depth export ...` | Integration; requires vendor SDK/SVO | `pyzed.sl` |
+| StereoSGBM depth | `underwater depth export --engine sgbm ...` | Integration; requires SVO/image input | OpenCV + ZED I/O |
+| ZED positional tracking | `underwater tracking zed ...` | Integration; sequential replay requires vendor SDK/SVO | `pyzed.sl` |
+| ALIKED + AdaLAM + COLMAP | `underwater sfm aliked-colmap ...` | Integration; real feature/match smoke tested, full external workflow environment-dependent | torch, LightGlue, Kornia, COLMAP |
+| ORB-SLAM3 | `integrations/orbslam3/run_orbslam3_svo2.ps1` | Integration; requires native build/toolchain | ORB-SLAM3, ZED SDK, CUDA |
+| Metashape export | `underwater_binocular.reconstruction.metashape` | Library only | external Metashape GUI |
+| Calibration/rectification diagnostics | `underwater diagnostic ...` | Experimental/diagnostic | core + OpenCV |
+
+## Common workflows
+
+The versioned dataset config intentionally has no machine-specific SVO path. Set `UNDERWATER_SVO_PATH` or pass `--svo`.
+
+```powershell
+# ZED GEN_1 sequential tracking
+.scriptsun_zed_tracking.ps1 -Mode GEN_1
+
+# ZED GEN_3 sequential tracking smoke
+.scriptsun_zed_tracking.ps1 -Mode GEN_3 -MaxFrames 1000
+
+# 50-frame ALIKED + AdaLAM smoke; include both camera sides and stop before COLMAP
+.scriptsun_aliked_adalam_colmap.ps1 -Frames 50 -IncludeRight -SkipColmap
+
+# Longer ALIKED + AdaLAM + COLMAP run with frozen calibration
+.scriptsun_aliked_adalam_colmap.ps1 -Frames 1000 -IncludeRight
+
+# Core tests
+python -m pytest -q
+```
+
+The detailed procedures are in [docs/runbooks/zed_tracking.md](docs/runbooks/zed_tracking.md), [docs/runbooks/aliked_adalam_colmap.md](docs/runbooks/aliked_adalam_colmap.md), [docs/runbooks/depth_export.md](docs/runbooks/depth_export.md), and [docs/runbooks/orbslam3.md](docs/runbooks/orbslam3.md).
 
 ## Data and version-control policy
 

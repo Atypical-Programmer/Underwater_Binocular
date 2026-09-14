@@ -7,7 +7,6 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
-
 from visualize_camera_frames import color_ramp, font, read_tum_trajectory
 
 

@@ -8,12 +8,10 @@ from __future__ import annotations
 
 import argparse
 import csv
-import html
 import json
 from pathlib import Path
 
 import numpy as np
-
 from visualize_camera_frames import match_validity, read_tum_trajectory
 
 

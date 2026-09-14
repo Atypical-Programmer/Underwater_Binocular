@@ -111,6 +111,7 @@ class ZedSession:
         self._camera: Any | None = None
         self._runtime: Any | None = None
         self._frame_index = -1
+        self._tracking_enabled = False
         self._runtime_metadata: dict[str, Any] | None = None
 
     @property
@@ -128,6 +129,40 @@ class ZedSession:
         if self._camera is None:
             raise RuntimeError("ZED session is not open")
         return self._camera
+
+    @property
+    def sdk(self) -> Any:
+        """Return the loaded SDK namespace for an already-open session."""
+
+        if self._sl is None:
+            raise RuntimeError("ZED SDK is not loaded")
+        return self._sl
+
+    @property
+    def frame_index(self) -> int:
+        """Return the last successfully grabbed SVO frame position."""
+
+        return self._frame_index
+
+    def camera_information(self) -> Any:
+        """Return camera information without opening another SDK handle."""
+
+        return self.camera.get_camera_information()
+
+    def svo_number_of_frames(self) -> int:
+        """Return the number of frames reported by the currently open SVO."""
+
+        value = int(self.camera.get_svo_number_of_frames())
+        if value <= 0:
+            raise RuntimeError(f"ZED reported an invalid SVO frame count: {value}")
+        return value
+
+    def svo_position(self) -> int:
+        """Return the SDK's current SVO position."""
+
+        if hasattr(self.camera, "get_svo_position"):
+            return int(self.camera.get_svo_position())
+        return self._frame_index
 
     def _make_init_parameters(self) -> Any:
         sl = self._sl or import_zed()
@@ -192,10 +227,15 @@ class ZedSession:
         """Close the SDK handle; safe to call after a failed open."""
 
         if self._camera is not None:
-            self._camera.close()
+            try:
+                if self._tracking_enabled and hasattr(self._camera, "disable_positional_tracking"):
+                    self._camera.disable_positional_tracking()
+            finally:
+                self._camera.close()
         self._camera = None
         self._runtime = None
         self._frame_index = -1
+        self._tracking_enabled = False
 
     def __enter__(self) -> ZedSession:
         return self.open()
@@ -220,6 +260,8 @@ class ZedSession:
 
         if frame_index < 0:
             raise ValueError("frame_index cannot be negative")
+        if self._tracking_enabled:
+            raise RuntimeError("SVO seeking is only allowed before positional tracking starts")
         status = self.camera.set_svo_position(int(frame_index))
         _check_status(status, "seeking SVO", self._sl)
         self._frame_index = frame_index - 1

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__
@@ -68,8 +70,91 @@ def build_parser() -> argparse.ArgumentParser:
         item.add_argument("--profile", type=Path, default=_default_profile())
         item.set_defaults(handler=handler)
 
+    tracking = commands.add_parser("tracking", help="run sequential ZED positional tracking")
+    tracking_commands = tracking.add_subparsers(dest="tracking_command", required=True)
+    zed_tracking = tracking_commands.add_parser(
+        "zed", help="replay a ZED SVO with GEN_1 or GEN_3 positional tracking"
+    )
+    zed_tracking.add_argument("--dataset", type=Path, required=True)
+    zed_tracking.add_argument(
+        "--mode",
+        type=str.upper,
+        choices=("GEN_1", "GEN_3", "BOTH"),
+        default="GEN_1",
+    )
+    zed_tracking.add_argument("--profile", type=Path)
+    zed_tracking.add_argument("--zed-config", type=Path)
+    zed_tracking.add_argument("--svo", type=Path)
+    zed_tracking.add_argument("--start-frame", type=int, default=0)
+    zed_tracking.add_argument("--end-frame", type=int)
+    zed_tracking.add_argument("--max-frames", type=int, default=0)
+    zed_tracking.add_argument("--output", type=Path)
+    zed_tracking.add_argument(
+        "--area-memory",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="enable Area Memory for the selected replay (default: disabled)",
+    )
+    zed_tracking.set_defaults(handler=_handle_tracking_zed)
+
     sfm = commands.add_parser("sfm", help="external SfM integrations")
     sfm_commands = sfm.add_subparsers(dest="sfm_command", required=True)
+    aliked_colmap = sfm_commands.add_parser(
+        "aliked-colmap", help="run real ALIKED + AdaLAM + COLMAP reconstruction"
+    )
+    aliked_colmap.add_argument("--dataset", type=Path, required=True)
+    aliked_colmap.add_argument("--profile", type=Path)
+    aliked_colmap.add_argument("--svo", type=Path)
+    aliked_colmap.add_argument("--output", type=Path)
+    aliked_colmap.add_argument("--num-frames", type=int, default=50)
+    aliked_colmap.add_argument("--start-frame", type=int, default=0)
+    aliked_colmap.add_argument("--end-frame", type=int)
+    aliked_colmap.add_argument("--frame-step", type=int, default=1)
+    aliked_colmap.add_argument("--include-right", action="store_true")
+    aliked_colmap.add_argument("--device", default="cuda")
+    aliked_colmap.add_argument("--aliked-model", default="aliked-n16")
+    aliked_colmap.add_argument(
+        "--resize", type=int, default=1024, help="ALIKED long-edge resize; 0 disables it"
+    )
+    aliked_colmap.add_argument("--max-keypoints", type=int, default=800)
+    aliked_colmap.add_argument("--detection-threshold", type=float, default=0.2)
+    aliked_colmap.add_argument("--nms-radius", type=int, default=2)
+    aliked_colmap.add_argument("--temporal-window", type=int, default=5)
+    aliked_colmap.add_argument("--extra-stride", type=int, default=0)
+    aliked_colmap.add_argument("--stereo-window", type=int, default=0)
+    aliked_colmap.add_argument("--min-raw-matches", type=int, default=20)
+    aliked_colmap.add_argument("--max-matches-per-pair", type=int, default=0)
+    aliked_colmap.add_argument(
+        "--camera-model",
+        choices=("PINHOLE", "OPENCV", "FULL_OPENCV"),
+        default="FULL_OPENCV",
+    )
+    aliked_colmap.add_argument(
+        "--freeze-calibration",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="freeze COLMAP calibration by default; use --no-freeze-calibration to refine",
+    )
+    aliked_colmap.add_argument("--colmap-executable", type=Path)
+    aliked_colmap.add_argument("--colmap-threads", type=int, default=8)
+    aliked_colmap.add_argument("--min-geometric-inliers", type=int, default=15)
+    aliked_colmap.add_argument("--max-geometric-error", type=float, default=4.0)
+    aliked_colmap.add_argument("--min-model-size", type=int, default=10)
+    aliked_colmap.add_argument("--mapper-min-num-matches", type=int, default=15)
+    aliked_colmap.add_argument("--init-min-num-inliers", type=int, default=50)
+    aliked_colmap.add_argument("--init-min-tri-angle", type=float, default=2.0)
+    aliked_colmap.add_argument(
+        "--skip-colmap",
+        action="store_true",
+        help="stop after writing the custom-feature/match database; mark COLMAP NOT EXECUTED",
+    )
+    aliked_colmap.add_argument(
+        "--resume",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="reuse only provenance-matching images/features",
+    )
+    aliked_colmap.set_defaults(handler=_handle_sfm_aliked_colmap)
     colmap = sfm_commands.add_parser("colmap", help="run the decomposed COLMAP integration")
     colmap.add_argument("--calibration", type=Path, default=_default_profile())
     colmap.add_argument(
@@ -124,6 +209,74 @@ def _handle_diagnostic_rectification(args: argparse.Namespace) -> int:
     from .diagnostics.rectification import rectification_diagnostic
 
     print(rectification_diagnostic(args.profile, args.dataset))
+    return 0
+
+
+def _default_run_output(dataset_id: str, category: str) -> Path:
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return repository_root() / "outputs" / dataset_id / category / run_id
+
+
+def _handle_tracking_zed(args: argparse.Namespace) -> int:
+    from .config.loaders import load_dataset_config
+    from .tracking.zed import run_tracking
+
+    dataset = load_dataset_config(args.dataset)
+    output = args.output or _default_run_output(dataset.dataset_id, "tracking")
+    run_tracking(
+        args.dataset,
+        mode=args.mode,
+        output_dir=output,
+        svo_override=args.svo,
+        profile_override=args.profile,
+        zed_config_path=args.zed_config,
+        start_frame=args.start_frame,
+        end_frame=args.end_frame,
+        max_frames=args.max_frames,
+        enable_area_memory=args.area_memory,
+    )
+    print(f"Tracking completed: {output}")
+    return 0
+
+
+def _handle_sfm_aliked_colmap(args: argparse.Namespace) -> int:
+    from .reconstruction.pipeline import run_aliked_colmap
+
+    summary = run_aliked_colmap(
+        args.dataset,
+        output_dir=args.output,
+        svo_override=args.svo,
+        profile_override=args.profile,
+        num_frames=args.num_frames,
+        include_right=args.include_right,
+        start_frame=args.start_frame,
+        end_frame=args.end_frame,
+        frame_step=args.frame_step,
+        device=args.device,
+        aliked_model=args.aliked_model,
+        resize=args.resize,
+        max_keypoints=args.max_keypoints,
+        detection_threshold=args.detection_threshold,
+        nms_radius=args.nms_radius,
+        temporal_window=args.temporal_window,
+        extra_stride=args.extra_stride,
+        stereo_window=args.stereo_window,
+        min_raw_matches=args.min_raw_matches,
+        max_matches_per_pair=args.max_matches_per_pair,
+        camera_model=args.camera_model,
+        freeze_calibration=args.freeze_calibration,
+        colmap_executable=args.colmap_executable,
+        colmap_threads=args.colmap_threads,
+        min_geometric_inliers=args.min_geometric_inliers,
+        max_geometric_error=args.max_geometric_error,
+        min_model_size=args.min_model_size,
+        mapper_min_num_matches=args.mapper_min_num_matches,
+        init_min_num_inliers=args.init_min_num_inliers,
+        init_min_tri_angle=args.init_min_tri_angle,
+        skip_colmap=args.skip_colmap,
+        resume=args.resume,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 0
 
 
