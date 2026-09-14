@@ -52,7 +52,19 @@ The `--device cuda` default fails if CUDA is unavailable. Use `--device cpu` exp
 .\scripts\run_aliked_adalam_colmap.ps1 `
   -Frames 1000 `
   -IncludeRight
+
+# Ready-to-run 1000-frame left/right reconstruction with exposed tuning parameters
+.\scripts\run_aliked_adalam_colmap_1000.ps1 `
+  -ColmapExecutable "D:\Underwater\Software\colmap-x64-windows-cuda\bin\colmap.exe"
 ```
+
+The dedicated `run_aliked_adalam_colmap_1000.ps1` script defaults to 1000
+uniformly sampled source positions, both camera sides, and a new
+`outputs/20260802_150233/sfm/sfm__custom__aliked_adalam__1000f__PRIMARY`
+directory. Use `-StartFrame 0 -EndFrame 999` for the first consecutive 1000
+source frames. All major ALIKED, pair-selection, and COLMAP thresholds are
+script parameters; run `Get-Help .\scripts\run_aliked_adalam_colmap_1000.ps1`
+for the built-in examples.
 
 Direct CLI form:
 

@@ -88,6 +88,9 @@ The versioned dataset config intentionally has no machine-specific SVO path. Set
 # Longer ALIKED + AdaLAM + COLMAP run with frozen calibration
 .\scripts\run_aliked_adalam_colmap.ps1 -Frames 1000 -IncludeRight
 
+# Dedicated 1000-frame left/right run; add -ColmapExecutable if COLMAP is not on PATH
+.\scripts\run_aliked_adalam_colmap_1000.ps1 -ColmapExecutable "D:\Underwater\Software\colmap-x64-windows-cuda\bin\colmap.exe"
+
 # Custom calibration comparison (explicit opt-in)
 .\scripts\run_zed_tracking.ps1 -Mode GEN_1 -CalibrationMode custom -Profile calibration/profiles/zed2i_37395692_custom.yaml
 
