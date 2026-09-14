@@ -2,7 +2,14 @@
 
 from .aliked import AlikedConfig, AlikedDependencyError, extract_aliked_features
 from .features import FeatureSet, ImageRecord
-from .matching import DescriptorMatches, ImagePair, build_image_pairs, match_adalam
+from .matching import (
+    DescriptorMatches,
+    ImagePair,
+    build_image_pairs,
+    load_lightglue_matcher,
+    match_adalam,
+    match_lightglue,
+)
 from .pipeline import run_aliked_colmap
 
 __all__ = [
@@ -14,6 +21,8 @@ __all__ = [
     "ImageRecord",
     "build_image_pairs",
     "extract_aliked_features",
+    "load_lightglue_matcher",
     "match_adalam",
+    "match_lightglue",
     "run_aliked_colmap",
 ]

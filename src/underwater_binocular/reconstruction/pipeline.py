@@ -1,4 +1,4 @@
-"""End-to-end ALIKED + AdaLAM + COLMAP reconstruction workflow."""
+"""End-to-end ALIKED matcher + COLMAP reconstruction workflow."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import platform
 import subprocess
 import time
 from collections import Counter
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -26,7 +27,14 @@ from .aliked import AlikedConfig, extract_aliked_features, load_torch_device
 from .colmap_database import create_colmap_database, database_stats
 from .colmap_runner import find_colmap_executable, run_colmap_pipeline
 from .features import ImageRecord
-from .matching import DescriptorMatches, ImagePair, build_image_pairs, match_adalam
+from .matching import (
+    DescriptorMatches,
+    ImagePair,
+    build_image_pairs,
+    load_lightglue_matcher,
+    match_adalam,
+    match_lightglue,
+)
 
 
 def _utc_now() -> str:
@@ -347,7 +355,7 @@ def _write_raw_matches(
     return accepted_pairs, total_matches, details
 
 
-def run_adalam_matching(
+def _run_matching(
     records: list[ImageRecord],
     features: list[Any],
     *,
@@ -358,8 +366,12 @@ def run_adalam_matching(
     stereo_window: int,
     min_raw_matches: int,
     max_matches_per_pair: int,
+    match_one: Callable[[Any, Any], DescriptorMatches],
+    algorithm: str,
+    implementation: str,
+    matcher_config: dict[str, Any] | None = None,
 ) -> tuple[Path, dict[str, Any], list[tuple[int, int, DescriptorMatches]]]:
-    """Run real AdaLAM for all bounded candidate pairs."""
+    """Run one explicit matcher for all bounded candidate pairs."""
 
     if len(records) != len(features):
         raise ValueError("records and features must have equal lengths")
@@ -375,17 +387,18 @@ def run_adalam_matching(
     started = time.perf_counter()
     matched_values: list[DescriptorMatches] = []
     accepted_database_matches: list[tuple[int, int, DescriptorMatches]] = []
-    for pair in pairs:
-        result = match_adalam(
-            features[pair.first_index],
-            features[pair.second_index],
-            device=device,
-            max_matches=max_matches_per_pair,
-        )
+    for pair_index, pair in enumerate(pairs, start=1):
+        result = match_one(features[pair.first_index], features[pair.second_index])
         matched_values.append(result)
         if len(result.query_indices) >= min_raw_matches:
             accepted_database_matches.append(
                 (pair.first_index + 1, pair.second_index + 1, result)
+            )
+        if pair_index == 1 or pair_index % 250 == 0 or pair_index == len(pairs):
+            print(
+                f"[{algorithm}] {pair_index}/{len(pairs)} pairs; "
+                f"{len(result.query_indices)} matches; {len(accepted_database_matches)} accepted",
+                flush=True,
             )
     match_path = matching_dir / "matches_raw.txt"
     accepted_pairs, total_matches, details = _write_raw_matches(
@@ -401,8 +414,8 @@ def run_adalam_matching(
     )
     match_counts = [int(len(value.query_indices)) for value in matched_values]
     summary: dict[str, Any] = {
-        "algorithm": "AdaLAM",
-        "implementation": "kornia.feature.match_adalam",
+        "algorithm": algorithm,
+        "implementation": implementation,
         "candidate_pairs": len(pairs),
         "pairs_with_matches": accepted_pairs,
         "accepted_pairs": accepted_pairs,
@@ -424,8 +437,91 @@ def run_adalam_matching(
         "elapsed_seconds": time.perf_counter() - started,
         "pairs": details,
     }
+    if matcher_config is not None:
+        summary["config"] = dict(matcher_config)
     _write_json(matching_dir / "summary.json", summary)
     return match_path, summary, accepted_database_matches
+
+
+def run_adalam_matching(
+    records: list[ImageRecord],
+    features: list[Any],
+    *,
+    matching_dir: Path,
+    device: Any,
+    temporal_window: int,
+    extra_stride: int,
+    stereo_window: int,
+    min_raw_matches: int,
+    max_matches_per_pair: int,
+) -> tuple[Path, dict[str, Any], list[tuple[int, int, DescriptorMatches]]]:
+    """Run real AdaLAM for all bounded candidate pairs."""
+
+    return _run_matching(
+        records,
+        features,
+        matching_dir=matching_dir,
+        device=device,
+        temporal_window=temporal_window,
+        extra_stride=extra_stride,
+        stereo_window=stereo_window,
+        min_raw_matches=min_raw_matches,
+        max_matches_per_pair=max_matches_per_pair,
+        match_one=lambda left, right: match_adalam(
+            left,
+            right,
+            device=device,
+            max_matches=max_matches_per_pair,
+        ),
+        algorithm="AdaLAM",
+        implementation="kornia.feature.match_adalam",
+    )
+
+
+def run_lightglue_matching(
+    records: list[ImageRecord],
+    features: list[Any],
+    *,
+    matching_dir: Path,
+    device: Any,
+    temporal_window: int,
+    extra_stride: int,
+    stereo_window: int,
+    min_raw_matches: int,
+    max_matches_per_pair: int,
+    filter_threshold: float,
+    depth_confidence: float,
+    width_confidence: float,
+) -> tuple[Path, dict[str, Any], list[tuple[int, int, DescriptorMatches]]]:
+    """Run LightGlue configured for the cached ALIKED descriptors."""
+
+    matcher, matcher_config = load_lightglue_matcher(
+        device,
+        filter_threshold=filter_threshold,
+        depth_confidence=depth_confidence,
+        width_confidence=width_confidence,
+    )
+    return _run_matching(
+        records,
+        features,
+        matching_dir=matching_dir,
+        device=device,
+        temporal_window=temporal_window,
+        extra_stride=extra_stride,
+        stereo_window=stereo_window,
+        min_raw_matches=min_raw_matches,
+        max_matches_per_pair=max_matches_per_pair,
+        match_one=lambda left, right: match_lightglue(
+            left,
+            right,
+            matcher=matcher,
+            device=device,
+            max_matches=max_matches_per_pair,
+        ),
+        algorithm="LightGlue",
+        implementation="lightglue.LightGlue",
+        matcher_config=matcher_config,
+    )
 
 
 def _feature_statistics(features: list[Any]) -> dict[str, float | int]:
@@ -474,6 +570,7 @@ def run_aliked_colmap(
     profile_override: Path | None = None,
     num_frames: int = 50,
     include_right: bool = False,
+    matcher: str = "adalam",
     start_frame: int = 0,
     end_frame: int | None = None,
     frame_step: int = 1,
@@ -502,6 +599,9 @@ def run_aliked_colmap(
     calibrated_stereo_planar: bool = False,
     stereo_max_reprojection_error: float = 8.0,
     stereo_motion_ransac_threshold_m: float = 0.12,
+    lightglue_filter_threshold: float = 0.1,
+    lightglue_depth_confidence: float = 0.95,
+    lightglue_width_confidence: float = 0.99,
     pose_h5: Path | None = None,
     pose_time_offset_s: float = 0.0,
     pose_lever_arm_body_m: list[float] | tuple[float, float, float] | None = None,
@@ -538,6 +638,11 @@ def run_aliked_colmap(
         nms_radius=nms_radius,
         device=device,
     )
+    matcher_key = str(matcher).strip().lower()
+    matcher_names = {"adalam": "AdaLAM", "lightglue": "LightGlue"}
+    if matcher_key not in matcher_names:
+        raise ValueError("matcher must be adalam or lightglue")
+    matcher_name = matcher_names[matcher_key]
     zed_config = ZedSessionConfig()
     started_at = _utc_now()
     effective_purpose = purpose or ("smoke" if skip_colmap else "production")
@@ -584,7 +689,7 @@ def run_aliked_colmap(
             "bounded_graph": True,
         },
         "feature_algorithm": "ALIKED",
-        "matcher_algorithm": "AdaLAM",
+        "matcher_algorithm": matcher_name,
         "aliked": config.to_mapping(),
         "calibration_profile": str(profile_path),
         "calibration_sha256": sha256_file(profile_path),
@@ -598,6 +703,15 @@ def run_aliked_colmap(
             "max_reprojection_error_px": float(stereo_max_reprojection_error),
             "motion_ransac_threshold_m": float(stereo_motion_ransac_threshold_m),
         },
+        "matcher_config": (
+            {
+                "filter_threshold": float(lightglue_filter_threshold),
+                "depth_confidence": float(lightglue_depth_confidence),
+                "width_confidence": float(lightglue_width_confidence),
+            }
+            if matcher_key == "lightglue"
+            else None
+        ),
         "external_pose": {
             "enabled": pose_h5 is not None,
             "source": str(pose_h5) if pose_h5 is not None else None,
@@ -655,17 +769,26 @@ def run_aliked_colmap(
             resume=resume,
         )
         torch, torch_device = load_torch_device(device)
-        match_path, match_summary, database_matches = run_adalam_matching(
-            records,
-            features,
-            matching_dir=output / "matching",
-            device=torch_device,
-            temporal_window=temporal_window,
-            extra_stride=extra_stride,
-            stereo_window=stereo_window,
-            min_raw_matches=min_raw_matches,
-            max_matches_per_pair=max_matches_per_pair,
-        )
+        matching_kwargs = {
+            "records": records,
+            "features": features,
+            "matching_dir": output / "matching",
+            "device": torch_device,
+            "temporal_window": temporal_window,
+            "extra_stride": extra_stride,
+            "stereo_window": stereo_window,
+            "min_raw_matches": min_raw_matches,
+            "max_matches_per_pair": max_matches_per_pair,
+        }
+        if matcher_key == "lightglue":
+            match_path, match_summary, database_matches = run_lightglue_matching(
+                **matching_kwargs,
+                filter_threshold=lightglue_filter_threshold,
+                depth_confidence=lightglue_depth_confidence,
+                width_confidence=lightglue_width_confidence,
+            )
+        else:
+            match_path, match_summary, database_matches = run_adalam_matching(**matching_kwargs)
         colmap_dir = output / "colmap"
         colmap_dir.mkdir(parents=True, exist_ok=True)
         camera_config_path = colmap_dir / "camera.json"

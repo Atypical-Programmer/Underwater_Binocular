@@ -38,7 +38,7 @@ def create_colmap_database(
     camera_model: str = "PINHOLE",
     insert_matches: bool = True,
 ) -> dict[str, int | str]:
-    """Create a COLMAP database from explicit keypoints and AdaLAM matches.
+    """Create a COLMAP database from explicit keypoints and matcher outputs.
 
     When ``insert_matches`` is false, the database is prepared for COLMAP's
     ``matches_importer``; this is the legacy-compatible path used before
@@ -122,7 +122,7 @@ def create_colmap_database(
             )
             # COLMAP's descriptors table is a SIFT-shaped uint8 storage slot.
             # The actual ALIKED float descriptors remain in features/*.npz;
-            # imported raw AdaLAM matches are the source used by this workflow.
+            # Imported raw matcher results are the source used by this workflow.
             descriptors = np.zeros((len(keypoints), 128), dtype=np.uint8)
             connection.execute(
                 "INSERT INTO descriptors VALUES (?,?,?,?)",

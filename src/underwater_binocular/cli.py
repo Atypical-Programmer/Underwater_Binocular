@@ -106,7 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     sfm = commands.add_parser("sfm", help="external SfM integrations")
     sfm_commands = sfm.add_subparsers(dest="sfm_command", required=True)
     aliked_colmap = sfm_commands.add_parser(
-        "aliked-colmap", help="run real ALIKED + AdaLAM + COLMAP reconstruction"
+        "aliked-colmap", help="run real ALIKED + configurable matcher + COLMAP reconstruction"
     )
     aliked_colmap.add_argument("--dataset", type=Path, required=True)
     aliked_colmap.add_argument("--profile", type=Path)
@@ -117,6 +117,12 @@ def build_parser() -> argparse.ArgumentParser:
     aliked_colmap.add_argument("--end-frame", type=int)
     aliked_colmap.add_argument("--frame-step", type=int, default=1)
     aliked_colmap.add_argument("--include-right", action="store_true")
+    aliked_colmap.add_argument(
+        "--matcher",
+        choices=("adalam", "lightglue"),
+        default="adalam",
+        help="descriptor matcher; both choices consume the same ALIKED features",
+    )
     aliked_colmap.add_argument("--device", default="cuda")
     aliked_colmap.add_argument("--aliked-model", default="aliked-n16")
     aliked_colmap.add_argument(
@@ -149,6 +155,24 @@ def build_parser() -> argparse.ArgumentParser:
     aliked_colmap.add_argument("--mapper-min-num-matches", type=int, default=15)
     aliked_colmap.add_argument("--init-min-num-inliers", type=int, default=50)
     aliked_colmap.add_argument("--init-min-tri-angle", type=float, default=2.0)
+    aliked_colmap.add_argument(
+        "--lightglue-filter-threshold",
+        type=float,
+        default=0.1,
+        help="LightGlue match confidence threshold",
+    )
+    aliked_colmap.add_argument(
+        "--lightglue-depth-confidence",
+        type=float,
+        default=0.95,
+        help="LightGlue early-stop confidence; use -1 to disable",
+    )
+    aliked_colmap.add_argument(
+        "--lightglue-width-confidence",
+        type=float,
+        default=0.99,
+        help="LightGlue keypoint-pruning confidence; use -1 to disable",
+    )
     aliked_colmap.add_argument(
         "--calibrated-stereo-planar",
         action="store_true",
@@ -346,6 +370,7 @@ def _handle_sfm_aliked_colmap(args: argparse.Namespace) -> int:
         profile_override=args.profile,
         num_frames=args.num_frames,
         include_right=args.include_right,
+        matcher=args.matcher,
         start_frame=args.start_frame,
         end_frame=args.end_frame,
         frame_step=args.frame_step,
@@ -373,6 +398,9 @@ def _handle_sfm_aliked_colmap(args: argparse.Namespace) -> int:
         calibrated_stereo_planar=args.calibrated_stereo_planar,
         stereo_max_reprojection_error=args.stereo_max_reprojection_error,
         stereo_motion_ransac_threshold_m=args.stereo_motion_ransac_threshold_m,
+        lightglue_filter_threshold=args.lightglue_filter_threshold,
+        lightglue_depth_confidence=args.lightglue_depth_confidence,
+        lightglue_width_confidence=args.lightglue_width_confidence,
         pose_h5=args.pose_h5,
         pose_time_offset_s=args.pose_time_offset_s,
         pose_lever_arm_body_m=args.pose_lever_arm_body_m,

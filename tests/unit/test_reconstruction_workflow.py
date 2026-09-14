@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from underwater_binocular.calibration.loaders import load_calibration_profile
 from underwater_binocular.reconstruction.colmap_database import (
@@ -20,6 +21,7 @@ from underwater_binocular.reconstruction.features import (
 from underwater_binocular.reconstruction.matching import (
     DescriptorMatches,
     build_image_pairs,
+    match_lightglue,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -144,3 +146,43 @@ def test_colmap_database_contains_custom_keypoints_and_matches(tmp_path: Path) -
         ))
     assert names == ["left/left.png", "right/right.png"]
     assert parameter_count == 12
+
+
+def test_lightglue_adapter_converts_scores_and_image_size() -> None:
+    torch = pytest.importorskip("torch")
+
+    class FakeLightGlue:
+        def __call__(self, data: dict[str, object]) -> dict[str, object]:
+            assert data["image0"]["image_size"].tolist() == [[1920.0, 1080.0]]
+            assert data["image1"]["image_size"].tolist() == [[1920.0, 1080.0]]
+            return {
+                "matches": [torch.tensor([[0, 1], [1, 0]])],
+                "scores": [torch.tensor([0.9, 0.8])],
+            }
+
+    left = FeatureSet(
+        image_path=Path("left.png"),
+        keypoints_xy=np.asarray([[10.0, 20.0], [30.0, 40.0]], dtype=np.float32),
+        descriptors=np.zeros((2, 128), dtype=np.float32),
+        model="ALIKED/aliked-n16",
+        image_size_hw=(1080, 1920),
+    )
+    right = FeatureSet(
+        image_path=Path("right.png"),
+        keypoints_xy=np.asarray([[11.0, 21.0], [31.0, 41.0]], dtype=np.float32),
+        descriptors=np.zeros((2, 128), dtype=np.float32),
+        model="ALIKED/aliked-n16",
+        image_size_hw=(1080, 1920),
+    )
+
+    result = match_lightglue(
+        left,
+        right,
+        matcher=FakeLightGlue(),
+        device=torch.device("cpu"),
+    )
+
+    assert result.matcher == "LightGlue"
+    np.testing.assert_array_equal(result.query_indices, [0, 1])
+    np.testing.assert_array_equal(result.train_indices, [1, 0])
+    np.testing.assert_allclose(result.distances, [0.1, 0.2], atol=1e-6)

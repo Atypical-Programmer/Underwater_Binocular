@@ -66,7 +66,7 @@ Read [docs/architecture.md](docs/architecture.md) for the topology, [docs/depth_
 | ZED SDK depth | `underwater depth export ...` | Integration; requires vendor SDK/SVO | `pyzed.sl` |
 | StereoSGBM depth | `underwater depth export --engine sgbm ...` | Integration; requires SVO/image input | OpenCV + ZED I/O |
 | ZED positional tracking | `underwater tracking zed ... --calibration-mode native` | Integration; sequential replay requires vendor SDK/SVO | `pyzed.sl` |
-| ALIKED + AdaLAM + COLMAP | `underwater sfm aliked-colmap ...` | Integration; ordinary mapper plus explicit calibrated-stereo planar path for near-planar scenes | torch, LightGlue, Kornia, COLMAP |
+| ALIKED + AdaLAM/LightGlue + COLMAP | `underwater sfm aliked-colmap ... --matcher {adalam,lightglue}` | Integration; ordinary mapper plus explicit calibrated-stereo planar path for near-planar scenes | torch, LightGlue, Kornia, COLMAP |
 | ORB-SLAM3 | `integrations/orbslam3/run_orbslam3_svo2.ps1` | Integration; requires native build/toolchain | ORB-SLAM3, ZED SDK, CUDA |
 | Metashape export | `underwater_binocular.reconstruction.metashape` | Library only | external Metashape GUI |
 | Calibration/rectification diagnostics | `underwater diagnostic ...` | Experimental/diagnostic | core + OpenCV |
@@ -87,6 +87,9 @@ The versioned dataset config intentionally has no machine-specific SVO path. Set
 
 # Longer ALIKED + AdaLAM + COLMAP run with frozen calibration
 .\scripts\run_aliked_adalam_colmap.ps1 -Frames 1000 -IncludeRight
+
+# Same 1000-frame setup with LightGlue for matcher comparison
+.\scripts\run_aliked_lightglue_colmap_1000.ps1 -ColmapExecutable "D:\Underwater\Software\colmap-x64-windows-cuda\bin\colmap.exe"
 
 # Dedicated 1000-frame left/right run; near-planar calibrated stereo is enabled by default
 # Add -ColmapExecutable if COLMAP is not on PATH

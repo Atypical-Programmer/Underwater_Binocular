@@ -1,4 +1,4 @@
-# ALIKED + AdaLAM + COLMAP runbook
+# ALIKED + AdaLAM/LightGlue + COLMAP runbook
 
 ## Purpose
 
@@ -8,13 +8,35 @@ This is the package's real neural feature/matching workflow. It migrates the leg
 SVO raw images
   → deterministic image manifest
   → LightGlue ALIKED
-  → Kornia AdaLAM
+  → AdaLAM or LightGlue matcher
   → bounded pair list and raw match list
   → COLMAP database
   → optional COLMAP geometric verification and mapper
 ```
 
-`ALIKED ≠ ORB` and `AdaLAM ≠ BFMatcher`. Missing optional dependencies are errors; the workflow never silently falls back to ORB or BFMatcher.
+`ALIKED ≠ ORB`; AdaLAM and LightGlue are explicit matcher choices, never
+silent BFMatcher fallbacks. Missing optional dependencies are errors.
+
+## Matcher comparison
+
+The CLI defaults to AdaLAM. Use `--matcher lightglue` to run the same ALIKED
+features and the same bounded pair graph through the learned LightGlue
+matcher. The dedicated script below uses the first 1,000 source frames,
+includes both camera sides, freezes the canonical calibration, enables the
+near-planar calibrated-stereo writer, and deliberately does not pass an HDF5
+pose file. Its output is separate from the AdaLAM result:
+
+```powershell
+.\scripts\run_aliked_lightglue_colmap_1000.ps1 `
+  -StartFrame 0 -EndFrame 999 -Frames 1000 -StereoWindow 1 `
+  -ColmapExecutable "D:\Underwater\Software\colmap-x64-windows-cuda\bin\colmap.exe"
+```
+
+The LightGlue-specific controls are `--lightglue-filter-threshold` (default
+`0.1`), `--lightglue-depth-confidence` (default `0.95`), and
+`--lightglue-width-confidence` (default `0.99`); set either confidence to
+`-1` to disable early stopping or keypoint pruning. Keep these at their
+defaults for the first AdaLAM comparison.
 
 ## Near-planar scenes: calibrated stereo mapping
 
@@ -93,9 +115,9 @@ python -m pip install -e ".[dev,sfm]"
 The workflow requires:
 
 - OpenCV for image decoding and PNG writing;
-- PyTorch for ALIKED/AdaLAM tensors;
+- PyTorch for ALIKED and matcher tensors;
 - the LightGlue package, including `lightglue.ALIKED` and its model weights;
-- Kornia with `kornia.feature.match_adalam`;
+- Kornia with `kornia.feature.match_adalam` when using AdaLAM;
 - a native COLMAP executable for geometric verification and mapping.
 
 The `--profile` argument names the canonical project profile. For the ZED
@@ -177,6 +199,16 @@ Feature files and `features/cache_manifest.json` include model, resize, keypoint
 
 The matcher calls `kornia.feature.match_adalam` directly with ALIKED descriptors, keypoints converted to LAFs, and each image's `(height, width)`. It validates match shapes and index ranges, removes non-finite/out-of-range values and duplicate one-to-one keypoint assignments, and records the number removed. An AdaLAM exception stops the run; no BFMatcher fallback exists.
 
+## LightGlue
+
+With `--matcher lightglue`, the matcher is initialized once as
+`lightglue.LightGlue(features="aliked")` and reused for every candidate pair.
+It receives the cached 128-dimensional ALIKED descriptors and original-pixel
+keypoints, with image sizes supplied as `(width, height)` for LightGlue's
+normalization. LightGlue confidence scores are converted to the common
+lower-is-better distance field, then the same one-to-one filtering, minimum
+match threshold, raw-match export, and COLMAP stages are used as for AdaLAM.
+
 ## COLMAP database and mapper
 
 The pipeline writes canonical-profile camera parameters into separate left/right cameras. The default mode is `FULL_OPENCV` with `calibration_mode=frozen`; mapper flags disable focal, principal-point, and extra-parameter refinement. `--no-freeze-calibration` marks the run `refined` and enables those flags.
@@ -188,7 +220,7 @@ two-view geometries, mapper model counts, and model-converter output in the
 run summary. If no executable is available, record `NOT EXECUTED` and retain
 unique historical databases/models.
 
-Custom ALIKED float descriptors remain in `features/*.npz`. COLMAP's legacy SIFT-shaped descriptor column is an inert uint8 storage slot because raw AdaLAM matches are imported explicitly; COLMAP native feature extraction is never run and cannot overwrite the custom feature stage. The database contains the intended custom keypoints and, after `matches_importer`, custom raw matches and verified two-view geometries.
+Custom ALIKED float descriptors remain in `features/*.npz`. COLMAP's legacy SIFT-shaped descriptor column is an inert uint8 storage slot because raw matcher results are imported explicitly; COLMAP native feature extraction is never run and cannot overwrite the custom feature stage. The database contains the intended custom keypoints and, after `matches_importer`, custom raw matches and verified two-view geometries.
 
 When `--skip-colmap` is passed, the command stops before any external executable and inserts the accepted custom matches directly into `colmap/database.db`; the summary says `NOT_EXECUTED` for COLMAP. Without that flag, the command runs `matches_importer`, then either the ordinary `mapper` or the calibrated-stereo planar writer selected above, followed by `model_converter` and `model_analyzer`; logs are under `colmap/logs/`. A missing executable or mapping/conversion failure is an explicit error.
 

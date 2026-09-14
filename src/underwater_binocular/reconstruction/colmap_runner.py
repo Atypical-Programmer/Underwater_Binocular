@@ -209,7 +209,7 @@ def run_colmap_pipeline(
     external_pose_time_offset_s: float = 0.0,
     external_pose_lever_arm_body_m: Sequence[float] | None = None,
 ) -> dict[str, Any]:
-    """Import AdaLAM matches and run the selected COLMAP-compatible mapping path."""
+    """Import explicit matcher outputs and run the selected COLMAP path."""
 
     executable = find_colmap_executable(colmap_executable)
     for required in (image_dir, database_path, match_path):
