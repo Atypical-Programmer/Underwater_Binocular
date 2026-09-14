@@ -92,6 +92,10 @@ The versioned dataset config intentionally has no machine-specific SVO path. Set
 # Add -ColmapExecutable if COLMAP is not on PATH
 .\scripts\run_aliked_adalam_colmap_1000.ps1 -ColmapExecutable "D:\Underwater\Software\colmap-x64-windows-cuda\bin\colmap.exe"
 
+# The dedicated script uses calibration/run_20260802_065806.h5 by default and
+# writes the H5-constrained model under a separate __H5_CONSTRAINED directory.
+# Use -PoseH5 "" to disable the external pose constraint.
+
 # Custom calibration comparison (explicit opt-in)
 .\scripts\run_zed_tracking.ps1 -Mode GEN_1 -CalibrationMode custom -Profile calibration/profiles/zed2i_37395692_custom.yaml
 

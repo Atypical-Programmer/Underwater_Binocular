@@ -43,7 +43,8 @@
 | `pointcloud/pointcloud__custom__zed_sdk__1000mapped__reference` | `complete` | 75,885,506 点；PLY 1,138,282,772 bytes；1,000 个 mapping 帧；校准/PLY/映射计数校验通过 | custom SDK 点云参考；保留原始运行中的轨迹质量警示 |
 | `slam/slam__orbslam3__diagnostic_full__35855f__baseline` | `complete` | 35,855 帧；35,855 有效位姿；到 SVO 末尾；已保存地图点 | ORB-SLAM3 全量诊断基线 |
 | `slam/slam__orbslam3__stereo_halfres__35855f__baseline` | `complete` | 960×540；35,855 帧；32,935 有效位姿（91.8561%） | ORB-SLAM3 半分辨率对照 |
-| `sfm/sfm__custom__aliked_adalam__1000f__PRIMARY` | `completed` | 1,000 源帧、2,000 图；1,600,000 keypoints；14,948 候选/接受对；标定双目平面模型 2,000/2,000 registered images；80,072 points3D；平均重投影误差 2.130112 px | 当前主 SfM 结果；尺度来自 canonical stereo baseline，绝对水下物理精度仍需独立验证 |
+| `sfm/sfm__custom__aliked_adalam__1000f__PRIMARY` | `completed` | 1,000 源帧、2,000 图；1,600,000 keypoints；14,948 候选/接受对；标定双目平面模型 2,000/2,000 registered images；80,072 points3D；平均重投影误差 2.130112 px | 视觉时序运动对照；尺度来自 canonical stereo baseline，绝对水下物理精度仍需独立验证 |
+| `sfm/sfm__custom__aliked_adalam__1000f__H5_CONSTRAINED` | `completed` | 1,000 源帧、2,000 图；H5 `inertial` 位姿按 SVO UTC 时间插值；固定左相机位姿、canonical 双目外参生成右相机；2,000/2,000 registered images；80,077 points3D；平均重投影误差 2.130214 px | H5 外部位姿约束结果；点优化时相机位姿和冻结内参固定；H5/INS 到相机外参及水下绝对精度仍需独立验证 |
 | `sfm/sfm__custom__aliked_adalam__2000f__PRIMARY` | `complete` | 2,000 图；1,212,518 keypoints（历史摘要）；12,950 候选对；9,567 接受对；1,448 registered images；136,707 points3D | 历史普通增量 SfM 对照，任意局部尺度 |
 | `sfm/sfm__custom__aliked_adalam__100f__reference` | `complete` | 100 图；99 接受/验证对；100 registered images；12,887 points3D | 次级复现参考 |
 | `sfm/sfm__custom__aliked_adalam_colmap__20f__diagnostic` | `completed` | 40 图；32,000 keypoints；128 对；128 verified geometries；2 registered images；575 points3D；模型已转 TXT | 外部 COLMAP 兼容性审计，非生产重建 |

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -115,6 +116,37 @@ def build_colmap_mapper_command(
     return command
 
 
+def build_fixed_pose_bundle_adjuster_command(
+    colmap_executable: Path,
+    input_path: Path,
+    output_path: Path,
+    *,
+    max_num_iterations: int = 100,
+) -> list[str]:
+    """Build a point-only bundle-adjustment command for externally fixed poses."""
+
+    return [
+        str(colmap_executable),
+        "bundle_adjuster",
+        "--input_path",
+        str(input_path),
+        "--output_path",
+        str(output_path),
+        "--BundleAdjustment.max_num_iterations",
+        str(max_num_iterations),
+        "--BundleAdjustment.refine_focal_length",
+        "0",
+        "--BundleAdjustment.refine_principal_point",
+        "0",
+        "--BundleAdjustment.refine_extra_params",
+        "0",
+        "--BundleAdjustment.refine_extrinsics",
+        "0",
+        "--BundleAdjustment.use_gpu",
+        "0",
+    ]
+
+
 def _run_logged(command: list[str], log_path: Path) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("w", encoding="utf-8", errors="replace", newline="\n") as handle:
@@ -172,6 +204,10 @@ def run_colmap_pipeline(
     calibrated_stereo_planar: bool = False,
     stereo_max_reprojection_error: float = 8.0,
     stereo_motion_ransac_threshold_m: float = 0.12,
+    external_pose_h5: Path | None = None,
+    image_timestamps_ns: Mapping[int, int] | None = None,
+    external_pose_time_offset_s: float = 0.0,
+    external_pose_lever_arm_body_m: Sequence[float] | None = None,
 ) -> dict[str, Any]:
     """Import AdaLAM matches and run the selected COLMAP-compatible mapping path."""
 
@@ -196,66 +232,137 @@ def run_colmap_pipeline(
     if calibrated_stereo_planar:
         if calibration is None:
             raise ValueError("calibrated_stereo_planar requires a stereo calibration")
-        planar_text_path = sparse_dir / "calibrated_stereo_planar_text"
-        planar_model_path = sparse_dir / "calibrated_stereo_planar"
-        if planar_text_path.exists():
-            shutil.rmtree(planar_text_path)
-        if planar_model_path.exists():
-            shutil.rmtree(planar_model_path)
+        external_left_poses = None
+        external_pose_metadata: Mapping[str, Any] | None = None
+        if external_pose_h5 is not None:
+            if image_timestamps_ns is None:
+                raise ValueError("external HDF5 poses require SVO image timestamps")
+            from .external_pose import load_h5_inertial_pose_sequence
+
+            sequence = load_h5_inertial_pose_sequence(external_pose_h5)
+            external_left_poses, external_pose_metadata = sequence.interpolate_camera_poses(
+                image_timestamps_ns,
+                time_offset_s=external_pose_time_offset_s,
+                lever_arm_body_m=external_pose_lever_arm_body_m,
+            )
+        external = external_left_poses is not None
+        mapping_method = (
+            "calibrated_stereo_h5_planar" if external else "calibrated_stereo_planar"
+        )
+        if external:
+            seed_text_path = sparse_dir / "calibrated_stereo_h5_planar_seed_text"
+            seed_model_path = sparse_dir / "calibrated_stereo_h5_planar_seed"
+            planar_model_path = sparse_dir / "calibrated_stereo_h5_planar"
+            planar_text_path = sparse_dir / "calibrated_stereo_h5_planar_text"
+        else:
+            seed_text_path = sparse_dir / "calibrated_stereo_planar_text"
+            seed_model_path = None
+            planar_model_path = sparse_dir / "calibrated_stereo_planar"
+            planar_text_path = seed_text_path
+        for path in (seed_text_path, seed_model_path, planar_model_path, planar_text_path):
+            if path is not None and path.exists():
+                shutil.rmtree(path)
+        if seed_model_path is not None:
+            seed_model_path.mkdir(parents=True, exist_ok=True)
         planar_model_path.mkdir(parents=True, exist_ok=True)
         stereo_summary = build_calibrated_stereo_planar_model(
             database_path,
-            planar_text_path,
+            seed_text_path,
             calibration=calibration,
             max_stereo_reprojection_error=stereo_max_reprojection_error,
             motion_ransac_threshold_m=stereo_motion_ransac_threshold_m,
+            external_left_poses=external_left_poses,
+            external_pose_metadata=external_pose_metadata,
         )
         stereo_summary_path = colmap_dir / "calibrated_stereo_planar_summary.json"
         stereo_summary_path.write_text(
             json.dumps(stereo_summary, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
-        converter = [
+        seed_converter = [
             str(executable),
             "model_converter",
             "--input_path",
-            str(planar_text_path),
+            str(seed_text_path),
             "--output_path",
-            str(planar_model_path),
+            str(seed_model_path or planar_model_path),
             "--output_type",
             "BIN",
         ]
-        _run_logged(converter, logs_dir / "calibrated_stereo_model_converter.log")
+        _run_logged(seed_converter, logs_dir / "calibrated_stereo_model_converter.log")
+        commands: dict[str, list[str]] = {
+            "matches_importer": importer,
+            "model_converter_seed": seed_converter,
+        }
+        if external:
+            if seed_model_path is None:
+                raise RuntimeError("internal error: HDF5 pose seed model path is unavailable")
+            bundle_adjuster = build_fixed_pose_bundle_adjuster_command(
+                executable,
+                seed_model_path,
+                planar_model_path,
+            )
+            _run_logged(bundle_adjuster, logs_dir / "calibrated_stereo_h5_bundle_adjuster.log")
+            commands["bundle_adjuster_fixed_poses"] = bundle_adjuster
+            if planar_text_path.exists():
+                shutil.rmtree(planar_text_path)
+            planar_text_path.mkdir(parents=True, exist_ok=True)
+            converter = [
+                str(executable),
+                "model_converter",
+                "--input_path",
+                str(planar_model_path),
+                "--output_path",
+                str(planar_text_path),
+                "--output_type",
+                "TXT",
+            ]
+            _run_logged(converter, logs_dir / "calibrated_stereo_h5_model_converter.log")
+            commands["model_converter"] = converter
+        else:
+            commands["model_converter"] = seed_converter
         analyzer = [
             str(executable),
             "model_analyzer",
             "--path",
             str(planar_model_path),
         ]
-        _run_logged(analyzer, logs_dir / "calibrated_stereo_model_analyzer.log")
+        analyzer_log = (
+            "calibrated_stereo_h5_model_analyzer.log"
+            if external
+            else "calibrated_stereo_model_analyzer.log"
+        )
+        _run_logged(analyzer, logs_dir / analyzer_log)
         text_model_path = planar_text_path
         model_summary = {
             "model_path": str(planar_model_path),
             "text_model_path": str(text_model_path),
             "model_dirs": [str(planar_model_path)],
-            "mapping_method": "calibrated_stereo_planar",
+            "mapping_method": mapping_method,
             **_model_counts(text_model_path),
         }
         result = {
             "status": "completed",
             "executable": str(executable),
             "calibration_mode": "frozen",
-            "mapping_method": "calibrated_stereo_planar",
-            "scale": "metric scale from the canonical calibrated stereo baseline; subject to calibration accuracy",
+            "mapping_method": mapping_method,
+            "scale": (
+                "metric scale from HDF5 ENU pose and the canonical calibrated stereo baseline; "
+                "subject to HDF5 and calibration accuracy"
+                if external
+                else "metric scale from the canonical calibrated stereo baseline; subject to calibration accuracy"
+            ),
             "database_stats_after_import": imported_stats,
             "model": model_summary,
             "calibrated_stereo": stereo_summary,
-            "commands": {
-                "matches_importer": importer,
-                "model_converter": converter,
-                "model_analyzer": analyzer,
-            },
+            "commands": {**commands, "model_analyzer": analyzer},
         }
+        if external:
+            result["external_pose"] = dict(external_pose_metadata or {})
+            result["initial_model"] = {
+                "model_path": str(seed_model_path),
+                "text_model_path": str(seed_text_path),
+            }
         (colmap_dir / "model_summary.json").write_text(
             json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )

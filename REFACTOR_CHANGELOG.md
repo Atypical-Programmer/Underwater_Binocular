@@ -19,3 +19,15 @@ incremental-COLMAP paths remain unchanged unless noted below.
 The calibrated-stereo result is metric relative to the canonical stereo
 baseline. That is a scale-source statement, not an independent validation of
 absolute underwater physical accuracy.
+
+## 2026-09-14 — HDF5 inertial pose constraint for planar SfM
+
+The ALIKED + AdaLAM workflow now accepts `--pose-h5` for an HDF5 inertial
+trajectory. The `inertial` stream is converted to local ENU coordinates and
+interpolated using the SVO timestamps. The selected H5 trajectory fixes the
+left-camera poses, canonical stereo extrinsics generate the right-camera
+poses, temporal matches are checked in the external world frame, and a
+point-only COLMAP bundle adjustment refines points with camera poses and
+frozen calibration fixed. The dedicated 1000-frame PowerShell script defaults
+to `calibration/run_20260802_065806.h5` and writes a separate
+`__H5_CONSTRAINED` output.

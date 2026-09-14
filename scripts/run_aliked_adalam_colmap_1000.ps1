@@ -11,6 +11,8 @@
     Calibrated stereo planar mapping is enabled by default because this dataset
     is dominated by a near-planar scene; disable it with
     -CalibratedStereoPlanar:$false to use the ordinary incremental mapper.
+    The HDF5 inertial pose constraint is enabled by default and writes a new
+    H5-constrained output directory. Disable it with -PoseH5 "".
 
     Run this script from any directory. Relative paths are resolved from the
     repository root (the parent directory of this script).
@@ -34,7 +36,7 @@ param(
     [string]$Dataset = "configs/datasets/20260802_150233.yaml",
     [string]$Svo = "20260802_150233.svo2",
     [string]$Profile = "calibration/profiles/zed2i_37395692_custom.yaml",
-    [string]$Output = "outputs/20260802_150233/sfm/sfm__custom__aliked_adalam__1000f__PRIMARY",
+    [string]$Output = "outputs/20260802_150233/sfm/sfm__custom__aliked_adalam__1000f__H5_CONSTRAINED",
     [int]$Frames = 1000,
     [int]$StartFrame = 0,
     [int]$EndFrame = -1,
@@ -64,6 +66,9 @@ param(
     [bool]$CalibratedStereoPlanar = $true,
     [double]$StereoMaxReprojectionError = 8.0,
     [double]$StereoMotionRansacThresholdM = 0.12,
+    [string]$PoseH5 = "calibration/run_20260802_065806.h5",
+    [double]$PoseTimeOffsetS = 0.0,
+    [double[]]$PoseLeverArmBodyM = @(0.0, 0.0, 0.0),
     [switch]$LeftOnly,
     [switch]$RefineCalibration,
     [switch]$SkipColmap,
@@ -104,7 +109,9 @@ $cliArgs = @(
     "--init-min-num-inliers", $InitMinNumInliers,
     "--init-min-tri-angle", $InitMinTriAngle,
     "--stereo-max-reprojection-error", $StereoMaxReprojectionError,
-    "--stereo-motion-ransac-threshold-m", $StereoMotionRansacThresholdM
+    "--stereo-motion-ransac-threshold-m", $StereoMotionRansacThresholdM,
+    "--pose-time-offset-s", $PoseTimeOffsetS,
+    "--pose-lever-arm-body-m", $PoseLeverArmBodyM[0], $PoseLeverArmBodyM[1], $PoseLeverArmBodyM[2]
 )
 
 if ($CalibratedStereoPlanar) {
@@ -116,6 +123,9 @@ if (-not [string]::IsNullOrWhiteSpace($Svo)) {
 }
 if (-not [string]::IsNullOrWhiteSpace($Profile)) {
     $cliArgs += @("--profile", $Profile)
+}
+if (-not [string]::IsNullOrWhiteSpace($PoseH5)) {
+    $cliArgs += @("--pose-h5", $PoseH5)
 }
 if (-not [string]::IsNullOrWhiteSpace($Output)) {
     $cliArgs += @("--output", $Output)

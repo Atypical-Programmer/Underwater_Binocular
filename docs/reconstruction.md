@@ -15,6 +15,15 @@ still a COLMAP-compatible model and is checked with `model_analyzer`, but its
 poses are produced by the calibrated-stereo path rather than ordinary
 incremental `mapper`.
 
+The same path accepts `--pose-h5` for an external inertial trajectory. It
+time-interpolates the HDF5 `inertial` dataset at the SVO image timestamps,
+fixes the left-camera poses in local ENU coordinates, derives the right-camera
+poses from the canonical stereo extrinsic, rejects temporal matches that are
+inconsistent with the external trajectory, and performs point-only bundle
+adjustment with camera poses and frozen calibration fixed. This is a hard pose
+constraint; verify the INS-to-camera lever arm and time alignment before using
+it as physical ground truth.
+
 `reconstruction.metashape` converts COLMAP-style world-to-camera poses to local camera-to-world references and writes explicit `georeferenced=false` and scale-source metadata. `integrations/metashape/` contains import guidance. These coordinates are not GPS/geographic coordinates, and arbitrary SfM scale must not be presented as physical underwater scale.
 
 Ordinary COLMAP reconstruction scale is arbitrary/local unless an actual valid

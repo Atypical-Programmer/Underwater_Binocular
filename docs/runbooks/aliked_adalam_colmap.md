@@ -50,6 +50,38 @@ the stereo baseline as the scale source. The scale is therefore metric
 relative to the supplied calibration, but absolute underwater accuracy still
 depends on calibration and camera/housing physics.
 
+### HDF5 inertial-pose-constrained mapping
+
+When an accurate inertial/navigation trajectory is available, pass its HDF5
+file with `--pose-h5`. The runner reads the `inertial` dataset, converts
+latitude/longitude/altitude to local ENU metres, interpolates
+`heading`/`roll`/`pitch` at each SVO `timestamp_ns`, fixes the left-camera
+poses, derives the right-camera poses from the canonical stereo extrinsic, and
+keeps only temporal matches consistent with the external trajectory. A
+point-only COLMAP bundle adjustment then refines 3-D points while keeping the
+external camera poses and frozen calibration fixed.
+
+```powershell
+underwater sfm aliked-colmap `
+  --dataset configs/datasets/20260802_150233.yaml `
+  --svo 20260802_150233.svo2 `
+  --profile calibration/profiles/zed2i_37395692_custom.yaml `
+  --pose-h5 calibration/run_20260802_065806.h5 `
+  --num-frames 1000 --start-frame 0 --end-frame 999 `
+  --include-right --device cuda --freeze-calibration `
+  --calibrated-stereo-planar `
+  --stereo-max-reprojection-error 8 `
+  --stereo-motion-ransac-threshold-m 0.12
+```
+
+This mode assumes the HDF5 attitude convention is heading clockwise from
+north with NED/FRD body axes, and initially treats the INS reference point as
+the left-camera center. Supply `--pose-lever-arm-body-m FORWARD RIGHT DOWN`
+when that lever arm is known. `--pose-time-offset-s` is added to each SVO time
+before interpolation. The final model is written under
+`colmap/sparse/calibrated_stereo_h5_planar/`; the seed model and all pose
+alignment metadata are retained beside it.
+
 ## Dependencies
 
 Install the package and SfM extra in the project environment:

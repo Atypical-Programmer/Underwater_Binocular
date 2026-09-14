@@ -167,6 +167,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="3-D rigid-motion RANSAC threshold between adjacent selected frames (meters)",
     )
     aliked_colmap.add_argument(
+        "--pose-h5",
+        type=Path,
+        help="HDF5 inertial trajectory used to fix left-camera poses in calibrated stereo mode",
+    )
+    aliked_colmap.add_argument(
+        "--pose-time-offset-s",
+        type=float,
+        default=0.0,
+        help="seconds added to each SVO timestamp before HDF5 pose interpolation",
+    )
+    aliked_colmap.add_argument(
+        "--pose-lever-arm-body-m",
+        type=float,
+        nargs=3,
+        metavar=("FORWARD", "RIGHT", "DOWN"),
+        default=None,
+        help="INS reference point to left-camera-center lever arm in body metres",
+    )
+    aliked_colmap.add_argument(
         "--skip-colmap",
         action="store_true",
         help="stop after writing the custom-feature/match database; mark COLMAP NOT EXECUTED",
@@ -354,6 +373,9 @@ def _handle_sfm_aliked_colmap(args: argparse.Namespace) -> int:
         calibrated_stereo_planar=args.calibrated_stereo_planar,
         stereo_max_reprojection_error=args.stereo_max_reprojection_error,
         stereo_motion_ransac_threshold_m=args.stereo_motion_ransac_threshold_m,
+        pose_h5=args.pose_h5,
+        pose_time_offset_s=args.pose_time_offset_s,
+        pose_lever_arm_body_m=args.pose_lever_arm_body_m,
         skip_colmap=args.skip_colmap,
         resume=args.resume,
     )

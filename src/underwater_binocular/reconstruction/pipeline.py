@@ -502,6 +502,9 @@ def run_aliked_colmap(
     calibrated_stereo_planar: bool = False,
     stereo_max_reprojection_error: float = 8.0,
     stereo_motion_ransac_threshold_m: float = 0.12,
+    pose_h5: Path | None = None,
+    pose_time_offset_s: float = 0.0,
+    pose_lever_arm_body_m: list[float] | tuple[float, float, float] | None = None,
     skip_colmap: bool = False,
     resume: bool = True,
     purpose: str | None = None,
@@ -518,6 +521,9 @@ def run_aliked_colmap(
     dataset = load_dataset_config(dataset_path)
     profile_path = (profile_override or dataset.calibration_profile).expanduser().resolve()
     calibration = load_calibration_profile(profile_path)
+    pose_h5 = pose_h5.expanduser().resolve() if pose_h5 is not None else None
+    if pose_h5 is not None and not pose_h5.is_file():
+        raise FileNotFoundError(f"HDF5 pose file not found: {pose_h5}")
     zed_calibration_path = _prepare_zed_calibration(profile_path, calibration)
     svo_path = dataset.resolve_svo_path(svo_override)
     if not svo_path.is_file():
@@ -540,9 +546,17 @@ def run_aliked_colmap(
         raise ValueError("purpose must be production, baseline, diagnostic, smoke, or ablation")
     if effective_retain_policy not in {"keep", "keep_summary", "archive", "disposable"}:
         raise ValueError("retain_policy must be keep, keep_summary, archive, or disposable")
-    mapping_method = "calibrated_stereo_planar" if calibrated_stereo_planar else "incremental_mapper"
+    if calibrated_stereo_planar and pose_h5 is not None:
+        mapping_method = "calibrated_stereo_h5_planar"
+    else:
+        mapping_method = "calibrated_stereo_planar" if calibrated_stereo_planar else "incremental_mapper"
     scale_description = (
-        "metric scale from the canonical calibrated stereo baseline; subject to calibration accuracy"
+        (
+            "metric scale from HDF5 ENU pose and the canonical calibrated stereo baseline; "
+            "subject to HDF5 and calibration accuracy"
+        )
+        if pose_h5 is not None and calibrated_stereo_planar
+        else "metric scale from the canonical calibrated stereo baseline; subject to calibration accuracy"
         if calibrated_stereo_planar
         else "arbitrary local SfM scale unless externally constrained"
     )
@@ -583,6 +597,17 @@ def run_aliked_colmap(
             "enabled": bool(calibrated_stereo_planar),
             "max_reprojection_error_px": float(stereo_max_reprojection_error),
             "motion_ransac_threshold_m": float(stereo_motion_ransac_threshold_m),
+        },
+        "external_pose": {
+            "enabled": pose_h5 is not None,
+            "source": str(pose_h5) if pose_h5 is not None else None,
+            "time_offset_s": float(pose_time_offset_s),
+            "lever_arm_body_m": (
+                [float(value) for value in pose_lever_arm_body_m]
+                if pose_lever_arm_body_m is not None
+                else [0.0, 0.0, 0.0]
+            ),
+            "mode": "fixed_left_camera_poses" if pose_h5 is not None else None,
         },
         "colmap_executable": str(colmap_executable) if colmap_executable else None,
         "scale": scale_description,
@@ -686,6 +711,14 @@ def run_aliked_colmap(
                 calibrated_stereo_planar=calibrated_stereo_planar,
                 stereo_max_reprojection_error=stereo_max_reprojection_error,
                 stereo_motion_ransac_threshold_m=stereo_motion_ransac_threshold_m,
+                external_pose_h5=pose_h5,
+                image_timestamps_ns={
+                    int(record.frame): int(record.timestamp_ns)
+                    for record in records
+                    if record.side == "left"
+                },
+                external_pose_time_offset_s=pose_time_offset_s,
+                external_pose_lever_arm_body_m=pose_lever_arm_body_m,
             )
         model = colmap_result.get("model", {})
         summary: dict[str, Any] = {

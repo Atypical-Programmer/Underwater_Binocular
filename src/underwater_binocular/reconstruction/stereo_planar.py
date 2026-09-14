@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -327,8 +328,17 @@ def build_calibrated_stereo_planar_model(
     calibration: StereoCalibration,
     max_stereo_reprojection_error: float = 8.0,
     motion_ransac_threshold_m: float = 0.12,
+    external_left_poses: Mapping[int, tuple[np.ndarray, np.ndarray]] | None = None,
+    external_pose_metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build a complete COLMAP text model from synchronized calibrated pairs."""
+    """Build a complete COLMAP text model from synchronized calibrated pairs.
+
+    When ``external_left_poses`` is supplied, the left-camera poses are fixed
+    to the supplied world-from-camera trajectory.  Temporal matches are then
+    accepted into tracks only when their stereo 3-D points agree in that
+    external world frame.  The right-camera poses remain derived from the
+    canonical rigid stereo calibration.
+    """
 
     if max_stereo_reprojection_error <= 0.0 or motion_ransac_threshold_m <= 0.0:
         raise ValueError("stereo and motion thresholds must be positive")
@@ -344,6 +354,33 @@ def build_calibrated_stereo_planar_model(
         )
         if len(frames) < 2:
             raise RuntimeError("calibrated stereo planar reconstruction needs at least two synchronized frames")
+        external_by_frame: dict[int, tuple[np.ndarray, np.ndarray]] | None = None
+        if external_left_poses is not None:
+            external_by_frame = {}
+            missing = []
+            for frame in frames:
+                value = external_left_poses.get(frame)
+                if value is None:
+                    missing.append(frame)
+                    continue
+                rotation, translation = value
+                rotation = np.asarray(rotation, dtype=np.float64)
+                translation = np.asarray(translation, dtype=np.float64).reshape(-1)
+                if (
+                    rotation.shape != (3, 3)
+                    or translation.shape != (3,)
+                    or not np.isfinite(rotation).all()
+                    or not np.isfinite(translation).all()
+                    or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1.0e-5)
+                    or not np.isclose(np.linalg.det(rotation), 1.0, atol=1.0e-5)
+                ):
+                    raise ValueError(f"invalid external left-camera pose for frame {frame}")
+                external_by_frame[frame] = (rotation, translation)
+            if missing:
+                raise ValueError(
+                    "external pose source has no pose for selected frames: "
+                    + ", ".join(str(frame) for frame in missing[:10])
+                )
         stereo_frames: list[_StereoFrame] = []
         image_keypoints: dict[int, np.ndarray] = {}
         image_names: dict[int, str] = {}
@@ -379,7 +416,15 @@ def build_calibrated_stereo_planar_model(
             )
 
         image_poses: dict[int, tuple[np.ndarray, np.ndarray]] = {}
-        image_poses[stereo_frames[0].left_image_id] = (np.eye(3), np.zeros(3))
+        if external_by_frame is None:
+            image_poses[stereo_frames[0].left_image_id] = (np.eye(3), np.zeros(3))
+        else:
+            image_poses.update(
+                {
+                    frame.left_image_id: external_by_frame[frame.frame]
+                    for frame in stereo_frames
+                }
+            )
         motion_summaries: list[dict[str, Any]] = []
         left_track_nodes: dict[tuple[int, int], int] = {}
         parent: list[int] = []
@@ -428,41 +473,97 @@ def build_calibrated_stereo_planar_model(
                 source.append(previous_point.xyz_left)
                 target.append(current_point.xyz_left)
                 match_keys.append((int(left_previous), int(left_current)))
-            motion = _estimate_rigid_motion(
-                np.asarray(source, dtype=np.float64),
-                np.asarray(target, dtype=np.float64),
-                ransac_threshold_m=motion_ransac_threshold_m,
-                seed=current.frame,
-            )
-            previous_world_rotation, previous_world_translation = image_poses[
-                previous.left_image_id
-            ]
-            relative_rotation = motion.rotation_next_from_current
-            relative_translation = motion.translation_next_from_current
-            current_world_rotation = previous_world_rotation @ relative_rotation.T
-            current_world_translation = previous_world_translation - current_world_rotation @ relative_translation
-            image_poses[current.left_image_id] = (
-                current_world_rotation,
-                current_world_translation,
-            )
-            for match_index in motion.inlier_match_indices:
+            if external_by_frame is None:
+                motion = _estimate_rigid_motion(
+                    np.asarray(source, dtype=np.float64),
+                    np.asarray(target, dtype=np.float64),
+                    ransac_threshold_m=motion_ransac_threshold_m,
+                    seed=current.frame,
+                )
+                previous_world_rotation, previous_world_translation = image_poses[
+                    previous.left_image_id
+                ]
+                relative_rotation = motion.rotation_next_from_current
+                relative_translation = motion.translation_next_from_current
+                current_world_rotation = previous_world_rotation @ relative_rotation.T
+                current_world_translation = (
+                    previous_world_translation - current_world_rotation @ relative_translation
+                )
+                image_poses[current.left_image_id] = (
+                    current_world_rotation,
+                    current_world_translation,
+                )
+                inlier_indices = motion.inlier_match_indices
+                median_error_m = motion.median_error_m
+                translation_m = float(np.linalg.norm(relative_translation))
+                rotation_degrees = float(
+                    np.degrees(
+                        np.arccos(
+                            np.clip((np.trace(relative_rotation) - 1.0) / 2.0, -1.0, 1.0)
+                        )
+                    )
+                )
+            else:
+                previous_world_rotation, previous_world_translation = image_poses[
+                    previous.left_image_id
+                ]
+                current_world_rotation, current_world_translation = image_poses[
+                    current.left_image_id
+                ]
+                if source:
+                    source_array = np.asarray(source, dtype=np.float64)
+                    target_array = np.asarray(target, dtype=np.float64)
+                    source_world = (
+                        previous_world_rotation @ source_array.T
+                    ).T + previous_world_translation
+                    target_world = (
+                        current_world_rotation @ target_array.T
+                    ).T + current_world_translation
+                    errors = np.linalg.norm(source_world - target_world, axis=1)
+                    inlier_indices = np.flatnonzero(errors <= motion_ransac_threshold_m)
+                    median_error_m = (
+                        float(np.median(errors[inlier_indices]))
+                        if len(inlier_indices)
+                        else float("inf")
+                    )
+                else:
+                    errors = np.empty(0, dtype=np.float64)
+                    inlier_indices = np.empty(0, dtype=np.int64)
+                    median_error_m = float("inf")
+                if len(source) >= 6 and len(inlier_indices) < 6:
+                    raise RuntimeError(
+                        "external HDF5 poses reject temporal matches between frames "
+                        f"{previous.frame} and {current.frame}: "
+                        f"{len(inlier_indices)} inliers out of {len(source)} "
+                        f"at threshold {motion_ransac_threshold_m} m"
+                    )
+                relative_rotation = current_world_rotation.T @ previous_world_rotation
+                translation_m = float(
+                    np.linalg.norm(current_world_translation - previous_world_translation)
+                )
+                rotation_degrees = float(
+                    np.degrees(
+                        np.arccos(
+                            np.clip((np.trace(relative_rotation) - 1.0) / 2.0, -1.0, 1.0)
+                        )
+                    )
+                )
+            for match_index in inlier_indices:
                 left_previous, left_current = match_keys[int(match_index)]
                 union(
                     node((previous.left_image_id, left_previous)),
                     node((current.left_image_id, left_current)),
                 )
-            rotation_degrees = np.degrees(
-                np.arccos(np.clip((np.trace(relative_rotation) - 1.0) / 2.0, -1.0, 1.0))
-            )
             motion_summaries.append(
                 {
                     "from_frame": int(previous.frame),
                     "to_frame": int(current.frame),
                     "candidate_3d_matches": int(len(source)),
-                    "inliers": int(len(motion.inlier_match_indices)),
-                    "median_error_m": float(motion.median_error_m),
-                    "translation_m": float(np.linalg.norm(relative_translation)),
-                    "rotation_degrees": float(rotation_degrees),
+                    "inliers": int(len(inlier_indices)),
+                    "median_error_m": float(median_error_m),
+                    "translation_m": translation_m,
+                    "rotation_degrees": rotation_degrees,
+                    "source": "external_h5" if external_by_frame is not None else "visual_3d_rigid_fit",
                 }
             )
 
@@ -549,14 +650,19 @@ def build_calibrated_stereo_planar_model(
     finally:
         connection.close()
     all_stereo_counts = [len(frame.points) for frame in stereo_frames]
-    return {
+    result: dict[str, Any] = {
         "database": str(database_path),
         "output_path": str(output_path),
         "frames": int(len(stereo_frames)),
         "images": int(len(stereo_frames) * 2),
         "registered_images": int(len(stereo_frames) * 2),
         "points3D": int(len(points)),
-        "scale": "metric scale from the canonical calibrated stereo baseline; subject to calibration accuracy",
+        "scale": (
+            "metric scale from external HDF5 ENU poses and the canonical calibrated stereo baseline; "
+            "subject to HDF5 and calibration accuracy"
+            if external_by_frame is not None
+            else "metric scale from the canonical calibrated stereo baseline; subject to calibration accuracy"
+        ),
         "stereo_points_per_frame": {
             "min": int(min(all_stereo_counts)),
             "median": float(np.median(all_stereo_counts)),
@@ -565,5 +671,9 @@ def build_calibrated_stereo_planar_model(
         },
         "motion_ransac_threshold_m": float(motion_ransac_threshold_m),
         "max_stereo_reprojection_error": float(max_stereo_reprojection_error),
+        "pose_source": "external_h5" if external_by_frame is not None else "stereo_temporal_visual",
         "motion": motion_summaries,
     }
+    if external_pose_metadata is not None:
+        result["external_pose"] = dict(external_pose_metadata)
+    return result
