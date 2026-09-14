@@ -21,11 +21,11 @@
 |---|---:|---:|---|
 | 清理前旧 `output/` | 8,833 | 32,562,536,067 | 只读基线，约 30.33 GiB |
 | 明确删除的文件/文件集 | 6,572 | 25,486,542,015 | 不含目录重复计数；六个空目录也已删除 |
-| 当前正式 `outputs/20260802_150233/` | 4,237 | 8,917,735,498 | 当前结果与兼容性审计 |
+| 当前正式 `outputs/20260802_150233/` | 4,227 | 8,917,414,876 | 当前结果与兼容性审计 |
 | 本地历史归档 `outputs/_archive/legacy-2026-09-14/` | 250 | 556,075,999 | 保留摘要、轨迹、元数据和必要对照；被 `.gitignore` 忽略 |
-| 当前 `outputs/` 合计 | 4,487 | 9,473,811,497 | 正式结果 + 本地历史归档 |
+| 当前 `outputs/` 合计 | 4,477 | 9,473,490,875 | 正式结果 + 本地历史归档 |
 | 可复用图像 `cache/20260802_150233/` | 2,000 | 5,207,272,369 | sample1000 左右图像缓存；可重建、不可提交 |
-| `outputs/` + `cache/` 本地合计 | 6,487 | 14,681,083,866 | 仍在本机的运行相关数据 |
+| `outputs/` + `cache/` 本地合计 | 6,477 | 14,680,763,244 | 仍在本机的运行相关数据 |
 
 删除字节是对 [`OUTPUT_DELETE_MANIFEST.md`](OUTPUT_DELETE_MANIFEST.md) 中各文件/文件集的求和，不包含父目录递归大小，因此没有重复计算。归档不是“释放空间”，而是把仍有证据价值的历史结果从旧目录重新组织；可删除性由清单和 README 约束。
 
@@ -96,9 +96,18 @@
 - 新增 `underwater outputs prune --dry-run`：默认不删除；`--apply` 必须显式指定 `--category empty` 或精确 JSON manifest，并拒绝递归删除非空目录。
 - stereo matching 将同步左右帧配对从无界的左×右扫描改为排序帧窗口查找；专用 1000 帧脚本默认 `StereoWindow=40`，保留 pair policy 和回归测试。
 - 新增显式 `calibrated_stereo_planar` 映射：用 canonical 左右外参三角化同步双目，再用相邻帧 3-D 刚体运动写出完整 COLMAP 模型；不会调用普通 incremental `mapper`。
-- 修复 Windows COLMAP `model_converter` 的目标目录创建问题；旧失败 `colmap/sparse/0` 保留，新的模型位于 `colmap/sparse/calibrated_stereo_planar/`。
+- 修复 Windows COLMAP `model_converter` 的目标目录创建问题；新的模型位于 `colmap/sparse/calibrated_stereo_planar/`。
 - `.gitignore` 现在忽略 `/output/`、`/outputs/`、`/cache/`、大型二进制和 inventory 生成物；不会把本地运行数据上传到 GitHub。
 - 原始 SVO `20260802_150233.svo2`、canonical calibration/profile、`calibration/source/` 和现有 `third_party/ORB_SLAM3` checkout 均未删除；后者的既有嵌套工作区改动也未触碰。
+
+## 本次失败结果清理
+
+已将当前主运行目录中明确失败、且已被新模型替代的普通 mapper 产物移入
+Windows 回收站（可恢复）：`colmap/sparse/0/`、`colmap/sparse/0_text/`、
+对应的 `mapper.log`、`model_converter.log`，以及第一次失败的
+`integration_calibrated_stereo_run.log`。成功的
+`calibrated_stereo_planar/`、`calibrated_stereo_planar_text/`、匹配数据库、
+特征缓存和历史归档均保留。
 
 ## 最终 24 项审计
 
