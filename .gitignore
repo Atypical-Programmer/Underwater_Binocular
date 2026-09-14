@@ -101,6 +101,9 @@ Makefile
 # Local dependency checkouts/caches
 # Keep SLAM/vcpkg.json under version control; bootstrap vcpkg separately.
 # ------------------------------
+/pyzed-*.whl
+/PyOpenGL-*.whl
+/PyOpenGL_accelerate-*.whl
 integrations/orbslam3/vcpkg/
 integrations/orbslam3/vcpkg_installed/
 integrations/orbslam3/Pangolin/

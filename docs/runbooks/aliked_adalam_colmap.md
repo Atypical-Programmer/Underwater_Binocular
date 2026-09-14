@@ -32,6 +32,11 @@ The workflow requires:
 - Kornia with `kornia.feature.match_adalam`;
 - a native COLMAP executable for geometric verification and mapping.
 
+The `--profile` argument names the canonical project profile. For the ZED
+SVO-open step, the runner regenerates its OpenCV `FileStorage` derivative at
+`calibration/generated/zed_custom_opencv.yml`; the canonical profile YAML is
+not passed directly to `optional_opencv_calibration_file`.
+
 The `--device cuda` default fails if CUDA is unavailable. Use `--device cpu` explicitly for a CPU run; there is no automatic device fallback. COLMAP and the ZED SDK are external programs and are not pretend-installed by PyPI metadata.
 
 ## Quick smoke and longer run
@@ -156,4 +161,11 @@ Ordinary COLMAP SfM output is a local reconstruction with arbitrary scale unless
 
 ## Troubleshooting
 
-The command distinguishes missing SVO/dataset/calibration, missing torch/LightGlue/Kornia, CUDA unavailable, empty features, malformed AdaLAM matches, invalid camera parameters, missing COLMAP, and mapper failure. Inspect `run.json`, `features/summary.json`, `matching/summary.json`, and `colmap/logs/` in that order.
+If ZED reports `INVALID CALIBRATION FILE`, verify that the canonical profile
+was loaded and that `calibration/generated/zed_custom_opencv.yml` is the file
+being used; the canonical profile YAML is an internal schema, not a ZED
+OpenCV `FileStorage` file. The command also distinguishes missing
+SVO/dataset/calibration, missing torch/LightGlue/Kornia, CUDA unavailable,
+empty features, malformed AdaLAM matches, invalid camera parameters, missing
+COLMAP, and mapper failure. Inspect `run.json`, `features/summary.json`,
+`matching/summary.json`, and `colmap/logs/` in that order.

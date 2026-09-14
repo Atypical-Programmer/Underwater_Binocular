@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
 from underwater_binocular.calibration.loaders import load_calibration_profile
-from underwater_binocular.calibration.zed import compare_runtime_calibration
+from underwater_binocular.calibration.zed import (
+    _expected_sdk_stereo_transform,
+    camera_parameters_metadata,
+    compare_runtime_calibration,
+)
 from underwater_binocular.config.models import ZedSessionConfig
 from underwater_binocular.io.zed import ZedImagePair, ZedSession
 
@@ -49,12 +54,25 @@ def test_raw_and_rectified_sdk_views_are_not_conflated() -> None:
     assert rectified[0].semantic == "RECTIFIED"
 
 
-def test_runtime_calibration_comparison_checks_the_inverse_transform() -> None:
+def test_camera_metadata_reads_zed_transform_matrix_property() -> None:
+    camera = SimpleNamespace(
+        fx=1.0,
+        fy=2.0,
+        cx=3.0,
+        cy=4.0,
+        disto=[0.0] * 5,
+        lens_distortion_model="RAD_TAN",
+    )
+    transform = SimpleNamespace(m=np.eye(4, dtype=np.float32))
+    metadata = camera_parameters_metadata(
+        SimpleNamespace(left_cam=camera, right_cam=camera, stereo_transform=transform)
+    )
+
+    np.testing.assert_allclose(metadata["stereo_transform_m"], np.eye(4))
+
+
+def test_runtime_calibration_comparison_checks_the_sdk_transform() -> None:
     calibration = load_calibration_profile(ROOT / "calibration/profiles/zed2i_37395692_custom.yaml")
-    rotation, translation = calibration.inverse_transform()
-    transform = np.eye(4)
-    transform[:3, :3] = rotation
-    transform[:3, 3] = translation
 
     def camera(camera_model: object) -> dict[str, object]:
         value = camera_model
@@ -71,7 +89,7 @@ def test_runtime_calibration_comparison_checks_the_inverse_transform() -> None:
         "raw": {
             "left": camera(calibration.left),
             "right": camera(calibration.right),
-            "stereo_transform_m": transform.tolist(),
+            "stereo_transform_m": _expected_sdk_stereo_transform(calibration).tolist(),
         },
         "rectified": {},
     }

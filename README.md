@@ -54,7 +54,7 @@ Package-internal translations are metres. The stereo transform is always:
 X_right = R_left_to_right @ X_left + t_left_to_right
 ```
 
-Raw distorted images are `RAW_UNRECTIFIED`; OpenCV/ZED rectified images are `RECTIFIED`. The ZED session is opened once through `io.zed.ZedSession`, with explicit native/custom calibration policy. The recommended tracking mode is `native`, which uses calibration embedded in the SVO and does not set `optional_opencv_calibration_file`; `custom` is an explicit comparison mode that passes the canonical profile and verifies runtime calibration. Depth consumers receive the common `DepthFrame` model, whether the engine is ZED `MEASURE.DEPTH` or OpenCV StereoSGBM.
+Raw distorted images are `RAW_UNRECTIFIED`; OpenCV/ZED rectified images are `RECTIFIED`. The ZED session is opened once through `io.zed.ZedSession`, with explicit native/custom calibration policy. The recommended tracking mode is `native`, which uses calibration embedded in the SVO and does not set `optional_opencv_calibration_file`; `custom` is an explicit comparison mode that passes the derived OpenCV FileStorage calibration and verifies runtime calibration. Depth consumers receive the common `DepthFrame` model, whether the engine is ZED `MEASURE.DEPTH` or OpenCV StereoSGBM.
 
 Read [docs/architecture.md](docs/architecture.md) for the topology, [docs/depth_pipeline.md](docs/depth_pipeline.md) for depth semantics, [docs/validation.md](docs/validation.md) for reproducibility and scientific guardrails, and [OUTPUT_CONSOLIDATION_REPORT.md](OUTPUT_CONSOLIDATION_REPORT.md) for the current local output inventory and run status.
 

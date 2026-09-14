@@ -13,6 +13,15 @@ def _float_list(value: Any) -> list[float]:
     return [float(item) for item in np.asarray(value, dtype=np.float64).reshape(-1)]
 
 
+def _transform_matrix(value: Any) -> np.ndarray:
+    """Convert a ZED Transform or a plain 4x4 value to a numeric matrix."""
+
+    matrix = np.asarray(getattr(value, "m", value), dtype=np.float64)
+    if matrix.shape != (4, 4):
+        raise ValueError(f"ZED stereo transform must be 4x4, got {matrix.shape}")
+    return matrix
+
+
 def camera_parameters_metadata(parameters: Any) -> dict[str, Any]:
     """Convert a ZED SDK camera-parameter object to JSON-safe metadata."""
 
@@ -26,7 +35,7 @@ def camera_parameters_metadata(parameters: Any) -> dict[str, Any]:
             "lens_distortion_model": str(camera.lens_distortion_model),
         }
 
-    transform = np.asarray(parameters.stereo_transform, dtype=np.float64).reshape(4, 4)
+    transform = _transform_matrix(parameters.stereo_transform)
     return {
         "left": camera(parameters.left_cam),
         "right": camera(parameters.right_cam),
@@ -51,6 +60,24 @@ def _matrix_from_camera(camera: dict[str, Any]) -> np.ndarray:
         [[camera["fx_px"], 0.0, camera["cx_px"]], [0.0, camera["fy_px"], camera["cy_px"]], [0.0, 0.0, 1.0]],
         dtype=np.float64,
     )
+
+
+def _expected_sdk_stereo_transform(expected: StereoCalibration) -> np.ndarray:
+    """Return the ZED ``Transform.m`` representation of the custom profile.
+
+    The OpenCV calibration file uses the package's camera-frame convention.
+    ZED exposes the loaded custom transform in its right-handed Y-up frame,
+    which applies the 180-degree X-axis basis change to the rotation and
+    reports the negated translation in metres.
+    """
+
+    rotation = np.asarray(expected.rotation_left_to_right, dtype=np.float64)
+    translation = np.asarray(expected.translation_left_to_right_m, dtype=np.float64).reshape(3)
+    basis_change = np.diag([1.0, -1.0, -1.0])
+    transform = np.eye(4, dtype=np.float64)
+    transform[:3, :3] = basis_change @ rotation @ basis_change
+    transform[:3, 3] = -translation
+    return transform
 
 
 def compare_runtime_calibration(
@@ -80,11 +107,8 @@ def compare_runtime_calibration(
         else:
             errors[f"{side}_D_first5_max_abs"] = float(np.max(np.abs(actual_d[:5] - expected_d)))
     actual_transform = np.asarray(raw["stereo_transform_m"], dtype=np.float64).reshape(4, 4)
-    expected_rotation, expected_translation = expected.inverse_transform()
-    expected_right_to_left = np.eye(4, dtype=np.float64)
-    expected_right_to_left[:3, :3] = expected_rotation
-    expected_right_to_left[:3, 3] = expected_translation
-    errors["stereo_transform_max_abs"] = float(np.max(np.abs(actual_transform - expected_right_to_left)))
+    expected_sdk_transform = _expected_sdk_stereo_transform(expected)
+    errors["stereo_transform_max_abs"] = float(np.max(np.abs(actual_transform - expected_sdk_transform)))
     failing = [name for name, value in errors.items() if ("_K_" in name or "_D_" in name) and value > tolerance_px]
     if errors["stereo_transform_max_abs"] > tolerance_m:
         failing.append("stereo_transform_max_abs")

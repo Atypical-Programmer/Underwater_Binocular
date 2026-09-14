@@ -15,8 +15,9 @@ from typing import Any
 import numpy as np
 
 from .. import __version__
-from ..calibration.conversion import write_colmap_camera_config
+from ..calibration.conversion import write_colmap_camera_config, write_zed_opencv_calibration
 from ..calibration.loaders import load_calibration_profile, sha256_file
+from ..calibration.models import StereoCalibration
 from ..config.loaders import load_dataset_config
 from ..config.models import DatasetConfig, ZedSessionConfig
 from ..io.images import as_bgr, write_image
@@ -458,6 +459,13 @@ def _default_output_dir(dataset_id: str) -> Path:
     return root / "outputs" / dataset_id / "sfm" / run_id
 
 
+def _prepare_zed_calibration(profile_path: Path, calibration: StereoCalibration) -> Path:
+    """Regenerate and return the OpenCV FileStorage file required by ZED."""
+
+    generated_path = profile_path.parent.parent / "generated" / "zed_custom_opencv.yml"
+    return write_zed_opencv_calibration(calibration, profile_path, generated_path)
+
+
 def run_aliked_colmap(
     dataset_path: Path,
     *,
@@ -507,6 +515,7 @@ def run_aliked_colmap(
     dataset = load_dataset_config(dataset_path)
     profile_path = (profile_override or dataset.calibration_profile).expanduser().resolve()
     calibration = load_calibration_profile(profile_path)
+    zed_calibration_path = _prepare_zed_calibration(profile_path, calibration)
     svo_path = dataset.resolve_svo_path(svo_override)
     if not svo_path.is_file():
         raise FileNotFoundError(f"SVO/SVO2 file not found: {svo_path}")
@@ -556,6 +565,8 @@ def run_aliked_colmap(
         "aliked": config.to_mapping(),
         "calibration_profile": str(profile_path),
         "calibration_sha256": sha256_file(profile_path),
+        "zed_opencv_calibration": str(zed_calibration_path),
+        "zed_opencv_calibration_sha256": sha256_file(zed_calibration_path),
         "calibration_mode": "frozen" if freeze_calibration else "refined",
         "colmap_camera_model": camera_model.upper(),
         "colmap_executable": str(colmap_executable) if colmap_executable else None,
@@ -581,7 +592,7 @@ def run_aliked_colmap(
             records, manifest = extract_svo_images(
                 dataset=dataset,
                 svo_path=svo_path,
-                calibration_path=profile_path,
+                calibration_path=zed_calibration_path,
                 output_dir=output,
                 include_right=include_right,
                 start_frame=start_frame,
