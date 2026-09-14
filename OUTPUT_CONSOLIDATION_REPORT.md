@@ -92,7 +92,7 @@
 
 - 新增 `underwater outputs inventory`：输出 JSON/CSV/Markdown 清单，记录大小、文件数、数据集、类别、状态、用途、保留策略、摘要/run 元数据、二进制提示和建议动作。
 - 新增 `underwater outputs prune --dry-run`：默认不删除；`--apply` 必须显式指定 `--category empty` 或精确 JSON manifest，并拒绝递归删除非空目录。
-- stereo matching 将同步左右帧配对从无界的左×右扫描改为排序帧窗口查找；保留 pair policy 和回归测试。
+- stereo matching 将同步左右帧配对从无界的左×右扫描改为排序帧窗口查找；专用 1000 帧脚本默认 `StereoWindow=40`，保留 pair policy 和回归测试。
 - `.gitignore` 现在忽略 `/output/`、`/outputs/`、`/cache/`、大型二进制和 inventory 生成物；不会把本地运行数据上传到 GitHub。
 - 原始 SVO `20260802_150233.svo2`、canonical calibration/profile、`calibration/source/` 和现有 `third_party/ORB_SLAM3` checkout 均未删除；后者的既有嵌套工作区改动也未触碰。
 
@@ -101,7 +101,7 @@
 | # | 审计项 | 状态与证据 |
 |---:|---|---|
 | 1 | tracking native/custom 分离 | PASS；默认 native，custom 显式 opt-in；`test_zed_boundary.py` |
-| 2 | stereo pair 性能 | PASS；排序窗口查找；`test_reconstruction_workflow.py` |
+| 2 | stereo pair 性能 | PASS；排序窗口查找；1000 帧脚本默认 `StereoWindow=40`；`test_reconstruction_workflow.py` |
 | 3 | COLMAP 兼容 | PASS；外部 3.11.1 importer/mapper/converter 全链路 |
 | 4 | 新输出布局 | PASS；`outputs/<dataset>/<category>/<run-id>`；旧 `output/` 不存在 |
 | 5 | 只读基线 | PASS；8,833 files / 32,562,536,067 bytes 已归档 |

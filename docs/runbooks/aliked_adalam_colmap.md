@@ -61,10 +61,15 @@ The `--device cuda` default fails if CUDA is unavailable. Use `--device cpu` exp
 The dedicated `run_aliked_adalam_colmap_1000.ps1` script defaults to 1000
 uniformly sampled source positions, both camera sides, and a new
 `outputs/20260802_150233/sfm/sfm__custom__aliked_adalam__1000f__PRIMARY`
-directory. Use `-StartFrame 0 -EndFrame 999` for the first consecutive 1000
-source frames. All major ALIKED, pair-selection, and COLMAP thresholds are
-script parameters; run `Get-Help .\scripts\run_aliked_adalam_colmap_1000.ps1`
-for the built-in examples.
+directory. It sets `-StereoWindow 40` by default. For the full-SVO uniform
+sampling, adjacent selected positions are about 35–36 source frames apart,
+so this adds neighboring left/right time pairs while retaining the exact
+synchronous pair. Use `-StereoWindow 0` to restore strict synchronization. If
+using the first consecutive 1000 source frames, use a much smaller stereo
+window or the cross-camera pair count grows quickly. Use
+`-StartFrame 0 -EndFrame 999` for that consecutive selection. All major ALIKED,
+pair-selection, and COLMAP thresholds are script parameters; run
+`Get-Help .\scripts\run_aliked_adalam_colmap_1000.ps1` for the built-in examples.
 
 Direct CLI form:
 

@@ -7,7 +7,7 @@
     over the configured SVO, so --include-right produces 2000 images. The
     defaults mirror the validated large SfM setup: ALIKED aliked-n16,
     1024-pixel resize, 800 keypoints, temporal window 5, extra stride 10,
-    synchronized stereo pairs, frozen FULL_OPENCV calibration, and COLMAP.
+    source-frame stereo window 40, frozen FULL_OPENCV calibration, and COLMAP.
 
     Run this script from any directory. Relative paths are resolved from the
     repository root (the parent directory of this script).
@@ -45,7 +45,7 @@ param(
     [int]$NmsRadius = 2,
     [int]$TemporalWindow = 5,
     [int]$ExtraStride = 10,
-    [int]$StereoWindow = 0,
+    [int]$StereoWindow = 40,
     [int]$MinRawMatches = 20,
     [int]$MaxMatchesPerPair = 0,
     [ValidateSet("PINHOLE", "OPENCV", "FULL_OPENCV")]
