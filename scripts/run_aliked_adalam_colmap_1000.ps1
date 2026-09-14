@@ -4,15 +4,15 @@
 
 .DESCRIPTION
     By default, 1000 synchronized source-frame positions are sampled uniformly
-    over the configured SVO, so --include-right produces 2000 images. The
+    from source frame 0 through 999, so --include-right produces 2000 images. The
     defaults mirror the validated large SfM setup: ALIKED aliked-n16,
     1024-pixel resize, 800 keypoints, temporal window 5, extra stride 10,
-    source-frame stereo window 40, frozen FULL_OPENCV calibration, and COLMAP.
+    source-frame stereo window 1, frozen FULL_OPENCV calibration, and COLMAP.
     Calibrated stereo planar mapping is enabled by default because this dataset
     is dominated by a near-planar scene; disable it with
     -CalibratedStereoPlanar:$false to use the ordinary incremental mapper.
-    The HDF5 inertial pose constraint is enabled by default and writes a new
-    H5-constrained output directory. Disable it with -PoseH5 "".
+    An HDF5 inertial pose constraint can be enabled explicitly with -PoseH5;
+    it is disabled by default so this script reproduces the visual PRIMARY run.
 
     Run this script from any directory. Relative paths are resolved from the
     repository root (the parent directory of this script).
@@ -36,10 +36,10 @@ param(
     [string]$Dataset = "configs/datasets/20260802_150233.yaml",
     [string]$Svo = "20260802_150233.svo2",
     [string]$Profile = "calibration/profiles/zed2i_37395692_custom.yaml",
-    [string]$Output = "outputs/20260802_150233/sfm/sfm__custom__aliked_adalam__1000f__H5_CONSTRAINED",
+    [string]$Output = "outputs/20260802_150233/sfm/sfm__custom__aliked_adalam__1000f__PRIMARY",
     [int]$Frames = 1000,
     [int]$StartFrame = 0,
-    [int]$EndFrame = -1,
+    [int]$EndFrame = 999,
     [int]$FrameStep = 1,
     [ValidateSet("cuda", "cpu")]
     [string]$Device = "cuda",
@@ -50,7 +50,7 @@ param(
     [int]$NmsRadius = 2,
     [int]$TemporalWindow = 5,
     [int]$ExtraStride = 10,
-    [int]$StereoWindow = 40,
+    [int]$StereoWindow = 1,
     [int]$MinRawMatches = 20,
     [int]$MaxMatchesPerPair = 0,
     [ValidateSet("PINHOLE", "OPENCV", "FULL_OPENCV")]
@@ -66,7 +66,7 @@ param(
     [bool]$CalibratedStereoPlanar = $true,
     [double]$StereoMaxReprojectionError = 8.0,
     [double]$StereoMotionRansacThresholdM = 0.12,
-    [string]$PoseH5 = "calibration/run_20260802_065806.h5",
+    [string]$PoseH5 = "",
     [double]$PoseTimeOffsetS = 0.0,
     [double[]]$PoseLeverArmBodyM = @(0.0, 0.0, 0.0),
     [switch]$LeftOnly,
