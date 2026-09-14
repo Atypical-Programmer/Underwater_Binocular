@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "meaning": "behavioral regression reference; not independent physical ground truth",
+  "resolution": {"width": 1920, "height": 1080},
+  "camera": {"model": "ZED 2i", "serial_number": 37395692},
+  "left": {
+    "fx_px": 1443.326338,
+    "fy_px": 1441.541002,
+    "cx_px": 967.033878,
+    "cy_px": 540.469238,
+    "distortion_model": "OpenCV RAD_TAN-like",
+    "distortion": [0.3151847, -0.7495814, 0.002129304, 0.005759798, 6.688496]
+  },
+  "right": {
+    "fx_px": 1449.830254,
+    "fy_px": 1448.097563,
+    "cx_px": 975.331674,
+    "cy_px": 514.232843,
+    "distortion_model": "OpenCV RAD_TAN-like",
+    "distortion": [0.3023032, -0.1692313, 0.001685104, 0.01069086, 1.944058]
+  },
+  "stereo": {
+    "convention": "X_right = R_left_to_right @ X_left + t_left_to_right",
+    "rotation_matrix": [
+      [0.999968008, 0.0054886443, 0.00581871018],
+      [-0.00548930265, 0.999984929, 0.0000971791651],
+      [-0.0058180891, -0.000129116717, 0.999983066]
+    ],
+    "translation_left_to_right_m": [-0.1224352, 0.0001676, 0.0178539],
+    "translation_source_unit": "millimetre",
+    "translation_source_mm": [-122.4352, 0.1676, 17.8539],
+    "declared_baseline_m": 0.1224352,
+    "tx_abs_m": 0.1224352,
+    "translation_norm_m": 0.1237302227994842
+  },
+  "diagnostics": {
+    "reprojection_error_px": 0.225048,
+    "rotation_determinant": 0.9999999994305349,
+    "rotation_orthogonality_error_max_abs": 8.812907070776532e-10,
+    "baseline_nominal_m": 0.12,
+    "scale_error_percent_relative_to_nominal": 2.0293
+  },
+  "source_files": [
+    {"path": "Calibration/标定结果/camera_intrinsics.yaml", "sha256": "DDA48DDEDE9E6FC779AD5196DFB91763B5FC4EDCACF02140F265A2244D09BADC"},
+    {"path": "Calibration/标定结果/stereo_extrinsics.yaml", "sha256": "2843479EDB23C576E4F6633BD1863BC67BA83AEB0570A281FFB63827CC0F6DAD"},
+    {"path": "Calibration/zed_custom_opencv.yml", "sha256": "596D63D6198303E1F65E2A19BE52BEF700D52E1BEE5AD8166A8CD21D1F060098"}
+  ]
+}

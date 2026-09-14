@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "meaning": "SDK runtime and production behavioral reference; not physical ground truth",
+  "dataset": "20260802_150233",
+  "sdk_version": "5.4.1",
+  "camera_model": "ZED 2i",
+  "serial_number": 37395692,
+  "resolution": {"width": 1920, "height": 1080},
+  "total_svo_frames": 35855,
+  "native_embedded_runtime": {
+    "calibration_source": "SVO embedded calibration_parameters_raw",
+    "depth_mode": "NONE",
+    "coordinate_units": "METER",
+    "raw_left": {"fx_px": 1068.0, "fy_px": 1067.77001953125, "cx_px": 957.4000244140625, "cy_px": 539.5910034179688, "distortion_model": "RAD_TAN", "distortion_length": 12},
+    "raw_right": {"fx_px": 1067.8299560546875, "fy_px": 1067.7099609375, "cx_px": 952.5700073242188, "cy_px": 511.7760009765625, "distortion_model": "RAD_TAN", "distortion_length": 12},
+    "stereo_transform_right_to_left_m": [
+      [0.9999756813049316, -0.00560940895229578, 0.004144059959799051, 0.11989500373601913],
+      [0.005615715403109789, 0.9999830722808838, -0.0015116895083338022, -0.0003074820269830525],
+      [-0.004135509952902794, 0.0015349246095865965, 0.9999902844429016, 0.00044540801900438964],
+      [0.0, 0.0, 0.0, 1.0]
+    ],
+    "baseline_norm_m": 0.1198962253549308,
+    "baseline_x_abs_m": 0.11989500373601913,
+    "rectified": {"fx_px": 1078.944091796875, "fy_px": 1078.944091796875, "cx_px": 955.636474609375, "cy_px": 524.4478149414062, "baseline_m": 0.11989622563123703}
+  },
+  "production_custom_runtime": {
+    "calibration_source": "calibration/generated/zed_custom_opencv.yml",
+    "custom_calibration_used": true,
+    "native_svo_calibration_used": false,
+    "camera_disable_self_calib": true,
+    "depth_source": "pyzed.sl.MEASURE.DEPTH",
+    "depth_mode": "NEURAL",
+    "coordinate_units": "METER",
+    "measure3D_reference_frame": "CAMERA",
+    "runtime_confidence_threshold": 30,
+    "runtime_texture_confidence_threshold": 100,
+    "depth_stabilization": 0,
+    "input_resolution": {"width": 1920, "height": 1080},
+    "exported_frames": 35855,
+    "runtime_verification_policy": "open with the custom calibration, disable self-calibration, then compare actual SDK raw/rectified K/D/R/T and resolution; mismatch is a hard failure",
+    "source_metadata": {"path": "20260802_150233_custom_sdk_depth_all_metadata.json", "sha256": "38900409FB24ADAF304C3109BD96C9518457CB63B763914091289AF58F92511E", "bytes": 4378}
+  }
+}

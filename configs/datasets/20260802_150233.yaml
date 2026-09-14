@@ -1,0 +1,14 @@
+schema_version: 1
+id: "20260802_150233"
+svo_path: null
+svo_path_env: UNDERWATER_SVO_PATH
+camera_serial: 37395692
+calibration_profile: ../../calibration/profiles/zed2i_37395692_custom.yaml
+resolution:
+  width: 1920
+  height: 1080
+fps: 30.0
+expected_frames: 35855
+notes: >-
+  The SVO path is intentionally unset in the versioned config. Use
+  UNDERWATER_SVO_PATH, --svo, or configs/local.yaml.

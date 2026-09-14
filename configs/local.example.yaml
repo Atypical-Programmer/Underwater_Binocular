@@ -1,0 +1,6 @@
+schema_version: 1
+# Copy to configs/local.yaml. local.yaml is ignored and may contain machine paths.
+svo_path: null
+zed_sdk_root_dir: null
+colmap_executable: null
+cuda_device: null

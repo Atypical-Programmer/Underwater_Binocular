@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "underwater-binocular"
+version = "0.1.0"
+description = "Maintainable calibration, depth, geometry, and reconstruction tools for an underwater binocular ZED rig."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.23",
+  "opencv-python>=4.8",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+sfm = [
+  "torch>=2.0",
+  "kornia>=0.7",
+  "lightglue @ git+https://github.com/cvg/LightGlue.git",
+]
+dev = [
+  "pytest>=7.4",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+underwater = "underwater_binocular.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = [
+  "full_data: requires a local SVO or other large dataset",
+  "requires_zed: requires the proprietary ZED SDK Python bindings",
+  "requires_colmap: requires an external COLMAP executable",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = [
+  "third_party",
+  "third_party/ORB_SLAM3",
+  "output",
+  "outputs",
+  "build",
+  "experiments/archive",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]

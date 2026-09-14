@@ -1,0 +1,74 @@
+path,type,size,current_role,called_by,duplicates_logic_with,future_action,future_path,notes
+README.md,markdown,root,project entry point,users,none,MOVE,README.md,rewrite as concise package entry point
+20260802_150233_underwater_stereo_detailed_report.md,markdown,root, historical scientific report,users,none,ARCHIVE,docs/archive/2026-09-depth-audit/,preserve source report
+CALIBRATION_PHYSICALITY_AUDIT.md,markdown,root,calibration audit,users,none,ARCHIVE,docs/archive/2026-09-depth-audit/,conclusions consolidated into docs/validation.md
+CURRENT_DEPTH_PROCESSING_REPORT_20260913.md,markdown,root,current SDK depth report,users,none,ARCHIVE,docs/archive/2026-09-depth-audit/,current facts summarized in docs/depth_pipeline.md and validation.md
+DEPTH_HYPOTHESIS_FALSIFICATION.md,markdown,root,depth hypothesis audit,users,none,ARCHIVE,docs/archive/2026-09-depth-audit/,preserve historical reasoning
+FINAL_UNDERWATER_DEPTH_VERDICT.md,markdown,root,current validation verdict,users,none,MOVE,docs/validation.md,becomes authoritative validation state
+MINIMUM_EXPERIMENT_TO_CLOSE_DEPTH_SCALE.md,markdown,root,required physical experiment,users,none,MOVE,docs/experiments/depth_scale_validation.md,preserve minimum closure protocol
+RECTIFICATION_FINDINGS.md,markdown,root,rectification audit,users,none,ARCHIVE,docs/archive/2026-09-depth-audit/,correct alpha semantics in stable docs
+REFRACTIVE_MODEL_DIAGNOSTICS.md,markdown,root,refractive diagnostic report,users,none,ARCHIVE,docs/archive/2026-09-depth-audit/,label legacy diagnostics
+REFRACTIVE_RIG_MODEL_AUDIT.md,markdown,root,rig refractive audit,users,none,ARCHIVE,docs/archive/2026-09-depth-audit/,preserve model limitations
+UNDERWATER_DEPTH_ACCURACY_AUDIT.md,markdown,root,depth accuracy audit,users,none,ARCHIVE,docs/archive/2026-09-depth-audit/,consolidate current conclusion
+*.ipynb,notebook,root,interactive showcase experiments,users,depth exporters,ARCHIVE,docs/archive/notebooks/,not part of package API; preserve
+analyze_custom_sdk_center_edge.py,python,12424,diagnostic center-edge analysis,manual,depth stats exporters,MERGE,src/underwater_binocular/diagnostics/depth.py,retain configurable valid-region statistics
+benchmark_tracking.py,python,20062,tracking benchmark,manual,SLAM runners,MERGE,src/underwater_binocular/tracking/zed.py,keep benchmark behavior as experiment wrapper
+compare_svo_and_calibration.py,python,15450,calibration diagnostic,manual,rerun_custom_calibration.py,MERGE,src/underwater_binocular/diagnostics/calibration.py,read-only comparison
+convert_colmap_for_metashape.py,python,19490,COLMAP to Metashape converter,manual,other pose converters,MERGE,src/underwater_binocular/reconstruction/metashape.py,share pose convention code
+convert_orbslam3_for_metashape.py,python,14329,ORB-SLAM3 pose converter,manual,other pose converters,MERGE,src/underwater_binocular/reconstruction/metashape.py,share pose convention code
+convert_pose_for_metashape.py,python,12447,pose conversion utility,manual,other pose converters,MERGE,src/underwater_binocular/reconstruction/metashape.py,share pose convention code
+convert_svo2_to_video.py,python,11664,SVO image video exporter,manual,ZED IO helpers,MERGE,src/underwater_binocular/io/svo.py,route through ZedSession
+convert_zed_custom_depth_to_video.py,python,23940,production custom SDK depth exporter,manual,generate_zed_custom_depth_mp4.py,MERGE,src/underwater_binocular/depth/zed_sdk.py,behavioral baseline is full custom SDK result
+convert_zed_depth_to_video.py,python,15277,native SDK depth exporter,manual,ZED depth exporters,MERGE,src/underwater_binocular/depth/zed_sdk.py,explicit native diagnostic mode
+debug_flat_port_refractive_model.py,python,36767,flat-port experiment,manual,refractive geometry,MERGE,experiments/refractive_model/,label legacy/double-counting-control
+debug_refractive_depth_check.py,python,53006,refractive audit experiment,manual,refractive geometry,MERGE,experiments/refractive_model/,preserve experiment protocol
+depth_maps_to_video.py,python,8337,depth visualization helper,manual,depth video exporters,MERGE,src/underwater_binocular/depth/visualization.py,consume DepthFrame only
+export_colmap_poses_to_metashape.py,python,15034,COLMAP pose export,manual,pose converters,MERGE,src/underwater_binocular/reconstruction/metashape.py,share conversion library
+export_colmap_poses_to_metashape_xml.py,python,9771,COLMAP XML pose export,manual,pose converters,MERGE,src/underwater_binocular/reconstruction/metashape.py,share conversion library
+export_gen1_pointcloud.py,python,13422,ZED GEN1 point-cloud exporter,manual,export_pointcloud.py,MERGE,src/underwater_binocular/tracking/zed.py,config-driven tracking mode
+export_orbslam3_custom_pointcloud.py,python,32199,ORB-SLAM point-cloud exporter,manual,SLAM scripts,MERGE,integrations/orbslam3/,integration wrapper
+export_pointcloud.py,python,24810,ZED point-cloud exporter,manual,export_gen1_pointcloud.py,MERGE,src/underwater_binocular/tracking/zed.py,route common session logic
+final_underwater_model_audit.py,python,49074,final refractive audit,manual,debug refractive scripts,MERGE,experiments/refractive_model/,preserve as reproducible experiment
+finalize_custom_sdk_pointcloud_metadata.py,python,18150,point-cloud metadata utility,manual,point-cloud exporters,MERGE,src/underwater_binocular/reconstruction/metashape.py,metadata provenance helper
+generate_zed_custom_depth_gif.py,python,19704,custom depth GIF exporter,manual,custom depth video exporter,MERGE,src/underwater_binocular/depth/visualization.py,consume DepthFrame
+generate_zed_custom_depth_mp4.py,python,12535,custom depth MP4 exporter,manual,custom depth video exporter,MERGE,src/underwater_binocular/depth/visualization.py,consume DepthFrame
+native_refractive_depth_check.py,python,6115,native refractive diagnostic,manual,refractive audit scripts,MERGE,src/underwater_binocular/diagnostics/refraction.py,not production depth
+read_svo2.py,python,15499,SVO reader/sample exporter,manual,ZED IO helpers,MERGE,src/underwater_binocular/io/svo.py,centralize session opening
+rectification_lr_consistency_experiment.py,python,13031,rectification experiment,manual,rectification_profile_experiment.py,MERGE,experiments/rectification/,preserve outputs as ignored
+rectification_profile_experiment.py,python,18509,rectification experiment,manual,strict_compare_stereo_depth.py,MERGE,experiments/rectification/,preserve alpha findings
+refractive_geometry.py,python,17350,pure refractive geometry library,tests,rig_refractive_geometry.py,MOVE,src/underwater_binocular/geometry/refraction.py,pure geometry must be ZED-free
+regenerate_depth_histogram.py,python,23482,SDK depth stats/visualization,manual,depth visualization exporters,MERGE,src/underwater_binocular/depth/statistics.py,consume DepthFrame
+regenerate_sgbm_depth_histogram.py,python,36694,SGBM diagnostic pipeline,manual,strict_compare_stereo_depth.py,MERGE,src/underwater_binocular/depth/sgbm.py,retain disparity /16 behavior
+rerun_custom_calibration.py,python,65036,calibration generation and SDK verification,manual,compare_svo_and_calibration.py,MERGE,src/underwater_binocular/calibration/,split canonical model/conversion/session verification
+rig_refractive_geometry.py,python,16916,pure rig-level refractive geometry,tests,refractive_geometry.py,MOVE,src/underwater_binocular/geometry/rig_refraction.py,preserve convention and synthetic tests
+run_aliked_adalam_colmap.py,python,36813,feature/matching/COLMAP pipeline,manual,pose/export scripts,MERGE,src/underwater_binocular/reconstruction/,decompose into feature/matching/database/runner modules
+sample_native_svo_depth.py,python,13363,SGBM/native sample diagnostic,manual,strict_compare_stereo_depth.py,MERGE,src/underwater_binocular/diagnostics/depth.py,preserve comparison behavior
+strict_compare_stereo_depth.py,python,27807,native/custom SGBM comparison,manual,regenerate_sgbm_depth_histogram.py,MERGE,src/underwater_binocular/diagnostics/depth.py,diagnostic only
+test_refractive_geometry.py,python,7330,geometry unit tests,pytest,refractive_geometry.py,MOVE,tests/unit/test_refraction.py,move tests under package layout
+test_rig_refractive_geometry.py,python,5237,rig geometry unit tests,pytest,rig_refractive_geometry.py,MOVE,tests/unit/test_rig_refraction.py,move tests under package layout
+Calibration/zed_custom_opencv.yml,yml,862,derived custom OpenCV calibration,package/ZED,source YAML,GENERATED,calibration/generated/zed_custom_opencv.yml,regenerate from canonical profile
+Calibration/标定结果/camera_intrinsics.yaml,yml,369,original calibration evidence,rerun_custom_calibration.py,canonical profile,MOVE,calibration/source/2026_underwater_calibration/camera_intrinsics.yaml,permanent source evidence
+Calibration/标定结果/stereo_extrinsics.yaml,yml,372,original stereo evidence,rerun_custom_calibration.py,canonical profile,MOVE,calibration/source/2026_underwater_calibration/stereo_extrinsics.yaml,permanent source evidence
+Calibration/标定结果/calib_full_params.xlsx,xlsx,8494,calibration workbook evidence,humans,none,MOVE,calibration/source/2026_underwater_calibration/calib_full_params.xlsx,permanent source evidence
+Calibration/标定结果/Camera-Centric.pdf,pdf,169380,calibration report evidence,humans,none,MOVE,calibration/source/2026_underwater_calibration/Camera-Centric.pdf,permanent source evidence
+Calibration/标定结果/重投影误差.pdf,pdf,14997,reprojection evidence,humans,none,MOVE,calibration/source/2026_underwater_calibration/reprojection_error.pdf,permanent source evidence
+Calibration/标定结果/立体匹配/*.png,png,~70 files,rectification inspection artifacts,humans,none,ARCHIVE,docs/archive/calibration/,tracked source evidence only; ignored reproducible images not deleted
+Calibration/run_20260802_065806.h5,h5,751776,ignored local calibration intermediate,local calibration,none,KEEP,Calibration/,unknown local data; do not delete
+SLAM/prepare_orbslam3_resampled.py,python,project integration helper,SLAM scripts,ORB-SLAM runner,MERGE,integrations/orbslam3/,configuration generation
+SLAM/prepare_orbslam3_stereo.py,python,project integration helper,SLAM scripts,ORB-SLAM runner,MERGE,integrations/orbslam3/,configuration generation
+SLAM/visualize_camera_frames.py,python,project visualization helper,SLAM scripts,pose converters,MERGE,integrations/orbslam3/,integration visualization
+SLAM/visualize_camera_frames_interactive.py,python,project visualization helper,SLAM scripts,pose converters,MERGE,integrations/orbslam3/,integration visualization
+SLAM/visualize_trajectory_top_view.py,python,project visualization helper,SLAM scripts,pose converters,MERGE,integrations/orbslam3/,integration visualization
+SLAM/build_orbslam3.ps1,powershell,project build wrapper,manual,none,MOVE,integrations/orbslam3/build_orbslam3.ps1,external dependency may be unavailable
+SLAM/run_orbslam3_resampled.ps1,powershell,project run wrapper,manual,none,MOVE,integrations/orbslam3/run_orbslam3_resampled.ps1,external dependency may be unavailable
+SLAM/run_orbslam3_svo2.ps1,powershell,project run wrapper,manual,none,MOVE,integrations/orbslam3/run_orbslam3_svo2.ps1,external dependency may be unavailable
+SLAM/config/20260802_150233_stereo.yaml,yml,project-generated ORB config,manual,canonical calibration,GENERATED,calibration/generated/orbslam3_stereo.yaml,regenerate without developer paths
+SLAM/vcpkg.json,json,dependency bootstrap metadata,build scripts,none,KEEP,integrations/orbslam3/vcpkg.json,project integration dependency metadata
+SLAM/ORB_SLAM3/**,third_party,upstream ORB-SLAM3 checkout,project integration,none,THIRD_PARTY,third_party/ORB_SLAM3/,preserve nested checkout and dirty state; exclude from ruff/pytest
+output/20260802_150233_final_underwater_audit/**,generated output,tracked final audit evidence,legacy scripts,none,DELETE,outputs/ plus validation/reference/,delete only after summaries are extracted
+output/20260802_150233_flat_port_refractive_audit/**,generated output,tracked intermediate audit evidence,legacy scripts,none,DELETE,outputs/ plus validation/reference/,delete only after summaries are extracted
+output/20260802_150233_refractive_depth_audit/**,generated output,tracked historical audit evidence,legacy scripts,none,DELETE,outputs/ plus validation/reference/,delete only after summaries are extracted
+output/** (other ignored files),generated output,local experimental results,local scripts,none,KEEP,output/,unknown user-local results; never delete in this migration
+root ignored SVO/videos/CSV/PNG/JSON,generated/local,local recording and exports,local scripts,none,KEEP,workspace root,not tracked and intentionally preserved
+notebook_assets/**,generated/local,notebook assets,notebooks,none,KEEP,notebook_assets/,ignored local user assets; not deleted
+build/**,build artifact,generated build products,build scripts,none,KEEP,build/,ignored local build artifacts; not deleted

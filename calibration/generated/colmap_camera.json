@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "generated_file": true,
+  "do_not_edit": true,
+  "canonical_source_path": "calibration/profiles/zed2i_37395692_custom.yaml",
+  "source_hash": "c43954f96cc885781f87179ad049db8269b0d36920aee777c9d5cb475c8a8cac",
+  "generator_version": "0.1.0",
+  "camera_model": "OPENCV",
+  "freeze_calibration_default": true,
+  "left": {
+    "width": 1920,
+    "height": 1080,
+    "params": [
+      1443.326338,
+      1441.541002,
+      967.033878,
+      540.469238,
+      0.3151847,
+      -0.7495814,
+      0.002129304,
+      0.005759798
+    ]
+  },
+  "right": {
+    "width": 1920,
+    "height": 1080,
+    "params": [
+      1449.830254,
+      1448.097563,
+      975.331674,
+      514.232843,
+      0.3023032,
+      -0.1692313,
+      0.001685104,
+      0.01069086
+    ]
+  }
+}

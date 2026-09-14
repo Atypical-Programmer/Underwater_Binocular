@@ -1,0 +1,39 @@
+schema_version: 1
+camera:
+  model: ZED 2i
+  serial_number: 37395692
+  resolution:
+    width: 1920
+    height: 1080
+left:
+  fx: 1443.326338
+  fy: 1441.541002
+  cx: 967.033878
+  cy: 540.469238
+  distortion_model: opencv_rad_tan
+  distortion: [0.3151847, -0.7495814, 0.002129304, 0.005759798, 6.688496]
+right:
+  fx: 1449.830254
+  fy: 1448.097563
+  cx: 975.331674
+  cy: 514.232843
+  distortion_model: opencv_rad_tan
+  distortion: [0.3023032, -0.1692313, 0.001685104, 0.01069086, 1.944058]
+stereo:
+  convention: X_right = R_left_to_right @ X_left + t_left_to_right
+  rotation_matrix:
+    - [0.999968008, 0.0054886443, 0.00581871018]
+    - [-0.00548930265, 0.999984929, 0.0000971791651]
+    - [-0.0058180891, -0.000129116717, 0.999983066]
+  translation_m: [-0.1224352, 0.0001676, 0.0178539]
+provenance:
+  source: calibration/source/2026_underwater_calibration/
+  date: unknown
+  medium: unknown
+  housing: unknown
+  target_type: unknown
+  target_square_size: unknown
+  notes: >-
+    Canonical computational profile reconstructed from the checked-in source
+    intrinsics/extrinsics. Physical calibration medium and installed-housing
+    geometry are unknown; this profile is an operational empirical candidate.

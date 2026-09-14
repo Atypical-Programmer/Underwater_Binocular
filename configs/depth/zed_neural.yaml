@@ -1,0 +1,14 @@
+schema_version: 1
+engine: zed-neural
+depth_mode: NEURAL
+coordinate_units: METER
+coordinate_system: RIGHT_HANDED_Y_UP
+reference_frame: CAMERA
+camera_disable_self_calib: true
+depth_stabilization: 0
+enable_image_enhancement: false
+confidence_threshold: 30
+texture_confidence_threshold: 100
+display_min_depth_m: 1.5
+display_max_depth_m: 3.5
+max_valid_depth_m: 100.0

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "meaning": "behavioral audit reference; not independent physical ground truth",
+  "r1_status": "NOT_IDENTIFIABLE",
+  "r1_definitive_depth": null,
+  "r1_missing_parameters": ["housing/port type", "shared/separate port planes in rig frame", "n_air", "n_glass", "n_water", "camera_to_inner_interface_m", "glass_thickness_m", "plane normals", "independent metric GT"],
+  "same_raw_correspondences_for_controls": 2988,
+  "flat_port_alpha_status": "not_identifiable_without_port_parameters",
+  "flat_port_correspondence_count": 2378,
+  "legacy_custom_plus_snell": {"status": "LEGACY_HYPOTHETICAL_CUSTOM_PLUS_SNELL", "parameter_provenance": "NOT_A_PHYSICAL_DEPTH_ESTIMATE; hypothetical grid only", "n_water": 1.33, "camera_to_inner_interface_m": 0.005, "glass_thickness_m": 0.003, "central_far_disparity_relative_to_custom_median": 0.2865181838123183},
+  "audit_sources": [
+    {"path": "output/20260802_150233_final_underwater_audit/correspondence_quality.csv", "bytes": 9781479, "sha256": "A9EF1961B4C1B0E8366ED94221A4BC55C28D569C9742D03A783537D2981FA921", "rows": 46024, "key_stat": "candidate correspondences; selected Set A/Set B flags retained in source"},
+    {"path": "output/20260802_150233_final_underwater_audit/native_refractive_depth_check.json", "bytes": 4810, "sha256": "5703086FC89A561DB4B96A281FAC76E0C38E8FED6E1B1ADFA0C3467DE6EE085B", "key_stat": "R1 remains null"},
+    {"path": "output/20260802_150233_final_underwater_audit/native_vs_custom_calibration.json", "bytes": 31683, "sha256": "23BDDE0076E54DFBDDECD3857485E41A762C7A0467380A99B7986ED363354F11", "key_stat": "native/custom convention and baseline comparison"},
+    {"path": "output/20260802_150233_final_underwater_audit/ray_field_comparison.csv", "bytes": 20798, "sha256": "CF5BC5F3810E6EE4141FAF447FB30943894034DE62B1BF80F91CBCAE92420194", "rows": 72},
+    {"path": "output/20260802_150233_final_underwater_audit/rig_refractive_sensitivity.csv", "bytes": 133365, "sha256": "02302405992D1A106EC306AA54E66741C7304D3BE4A25E5A806829773537AD22", "rows": 384, "key_stat": "hypothetical R1 sensitivity only"},
+    {"path": "output/20260802_150233_final_underwater_audit/triangulation_quality.csv", "bytes": 2966476, "sha256": "771ADFA34938CD47903716570B2196C47B2FDC898F272E48F6A03E17CA2B09E5", "rows": 10596, "key_stat": "positive depth/range/ray quality fields"},
+    {"path": "output/20260802_150233_flat_port_refractive_audit/alpha_invariance_check.json", "bytes": 342887, "sha256": "98B0EFCB136306BE3FDC08D531F5E864989324F8242A5CD33FEEE74CBBBF1DC6", "key_stat": "same-raw alpha invariance PASS"},
+    {"path": "output/20260802_150233_flat_port_refractive_audit/refractive_correspondence_check.json", "bytes": 1876592, "sha256": "BE16466118B13F9A1FDCF0085E5CC7F2652EEE5604FBC2CED54A3AAD0FE08044", "rows_or_records": 2378},
+    {"path": "output/20260802_150233_flat_port_refractive_audit/refractive_sensitivity.csv", "bytes": 314211, "sha256": "86205B342F9CCF09F0CD97BB0422FE8526914AD43C0AA59B740AC23ECEA6BFA8", "rows": 1296, "key_stat": "legacy custom-plus-Snell sensitivity"},
+    {"path": "output/20260802_150233_refractive_depth_audit/refractive_depth_audit.json", "bytes": 297709, "sha256": "DCCC21F16FB6CBD6DE679B0F075B11136B2AE3488F5480667F539B083F471AB9", "key_stat": "same-frame native/custom audit protocol"}
+  ]
+}

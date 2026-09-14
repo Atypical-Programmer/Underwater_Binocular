@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "meaning": "operational custom-calibrated SDK depth; not independent physical ground truth",
+  "dataset": "20260802_150233",
+  "engine": "ZedSdkDepthEngine",
+  "calibration": "calibration/generated/zed_custom_opencv.yml",
+  "depth_source": "pyzed.sl.MEASURE.DEPTH",
+  "depth_mode": "NEURAL",
+  "total_frames": 35855,
+  "valid_frames": 35706,
+  "valid_ratio": 0.9958443731697113,
+  "center_pixel": {"x": 960, "y": 540},
+  "center_window_radius": 2,
+  "center_pixel_median_m": 2.204124689102173,
+  "center_window_median_m": 2.2040793895721436,
+  "selected_quantiles_m": {
+    "center_pixel": {"min": 1.8410251140594482, "p01": 1.9340411007404328, "p05": 2.0175459384918213, "median": 2.204124689102173, "mean": 2.2084015725887984, "std": 0.1198162062106616, "p95": 2.407607614994049, "p99": 2.6021707177162168, "max": 2.6539337635040283},
+    "center_window_median": {"min": 1.8410227298736572, "p01": 1.9340632510185243, "p05": 2.017473793029785, "median": 2.2040793895721436, "mean": 2.2083798006864797, "std": 0.11981144037201184, "p95": 2.407531309127808, "p99": 2.602177186012268, "max": 2.6539337635040283}
+  },
+  "run_settings": {
+    "display_range_m": [1.5, 3.5],
+    "max_valid_depth_m": 100.0,
+    "invalid_pixels": "black",
+    "colormap": "TURBO; blue=near, red=far",
+    "output_resolution": {"width": 1920, "height": 1080},
+    "output_fps": 30.0,
+    "codec": "mp4v"
+  },
+  "source_metadata": {"path": "20260802_150233_custom_sdk_depth_all_metadata.json", "sha256": "38900409FB24ADAF304C3109BD96C9518457CB63B763914091289AF58F92511E", "bytes": 4378}
+}

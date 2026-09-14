@@ -49,12 +49,14 @@ desktop.ini
 *.h5
 
 # Calibration inspection images are reproducible from calibration data.
+calibration/**/rect_line_*.png
 Calibration/**/rect_line_*.png
 
 # ------------------------------
 # Experiment outputs
 # ------------------------------
 /output/
+/outputs/
 *.mp4
 *.avi
 *.mov
@@ -95,20 +97,28 @@ Makefile
 # Local dependency checkouts/caches
 # Keep SLAM/vcpkg.json under version control; bootstrap vcpkg separately.
 # ------------------------------
+integrations/orbslam3/vcpkg/
+integrations/orbslam3/vcpkg_installed/
+integrations/orbslam3/Pangolin/
+
+# Pre-migration local dependency caches are retained in-place but remain ignored.
+SLAM/build/
+SLAM/config/
 SLAM/vcpkg/
 SLAM/vcpkg_installed/
 SLAM/Pangolin/
+SLAM/__pycache__/
 
 # ORBvoc is a large generated/downloaded vocabulary, not project source.
-SLAM/ORB_SLAM3/Vocabulary/ORBvoc.txt
-SLAM/ORB_SLAM3/Vocabulary/ORBvoc.txt.tar.gz
+third_party/ORB_SLAM3/Vocabulary/ORBvoc.txt
+third_party/ORB_SLAM3/Vocabulary/ORBvoc.txt.tar.gz
 
 # Upstream ORB-SLAM3 example/evaluation datasets are not required by this
 # project's SVO2 runner. Keep the source code and custom example intact.
-SLAM/ORB_SLAM3/Examples_old/
-SLAM/ORB_SLAM3/Examples/Monocular-Inertial/TUM_IMU/
-SLAM/ORB_SLAM3/Examples/Stereo-Inertial/TUM_IMU/
-SLAM/ORB_SLAM3/evaluation/
+third_party/ORB_SLAM3/Examples_old/
+third_party/ORB_SLAM3/Examples/Monocular-Inertial/TUM_IMU/
+third_party/ORB_SLAM3/Examples/Stereo-Inertial/TUM_IMU/
+third_party/ORB_SLAM3/evaluation/
 
 # Temporary files created by interrupted exports.
 *.tmp
