@@ -44,12 +44,13 @@
 | `slam/slam__orbslam3__diagnostic_full__35855f__baseline` | `complete` | 35,855 帧；35,855 有效位姿；到 SVO 末尾；已保存地图点 | ORB-SLAM3 全量诊断基线 |
 | `slam/slam__orbslam3__stereo_halfres__35855f__baseline` | `complete` | 960×540；35,855 帧；32,935 有效位姿（91.8561%） | ORB-SLAM3 半分辨率对照 |
 | `sfm/sfm__custom__aliked_adalam__1000f__PRIMARY` | `completed` | 1,000 源帧、2,000 图；1,600,000 keypoints；14,948 候选/接受对；标定双目平面模型 2,000/2,000 registered images；80,072 points3D；平均重投影误差 2.130112 px | 视觉时序运动对照；尺度来自 canonical stereo baseline，绝对水下物理精度仍需独立验证 |
-| `sfm/sfm__custom__aliked_adalam__1000f__H5_CONSTRAINED` | `completed` | 1,000 源帧、2,000 图；H5 `inertial` 位姿按 SVO UTC 时间插值；固定左相机位姿、canonical 双目外参生成右相机；2,000/2,000 registered images；80,077 points3D；平均重投影误差 2.130214 px | H5 外部位姿约束结果；点优化时相机位姿和冻结内参固定；H5/INS 到相机外参及水下绝对精度仍需独立验证 |
 | `sfm/sfm__custom__aliked_adalam__2000f__PRIMARY` | `complete` | 2,000 图；1,212,518 keypoints（历史摘要）；12,950 候选对；9,567 接受对；1,448 registered images；136,707 points3D | 历史普通增量 SfM 对照，任意局部尺度 |
 | `sfm/sfm__custom__aliked_adalam__100f__reference` | `complete` | 100 图；99 接受/验证对；100 registered images；12,887 points3D | 次级复现参考 |
 | `sfm/sfm__custom__aliked_adalam_colmap__20f__diagnostic` | `completed` | 40 图；32,000 keypoints；128 对；128 verified geometries；2 registered images；575 points3D；模型已转 TXT | 外部 COLMAP 兼容性审计，非生产重建 |
 
 > 注：历史普通增量主/次级 SfM 的 local scale 未经过外部 metric 约束；当前 `1000f__PRIMARY` 使用 canonical stereo baseline，因此仅对该模型记录“相对标定的 metric scale”。
+
+> `sfm/sfm__custom__aliked_adalam__1000f__H5_CONSTRAINED` 已按用户要求移入 Windows 回收站，因重建结果无效而不再作为当前输出保留。`PRIMARY`、H5 原始文件以及 H5 约束代码仍保留。
 
 正式结果的摘要和轨迹文件仍保留历史 lineage 路径；这些路径明确指向旧 `output/` 来源，便于审计，不代表旧目录仍存在。
 
