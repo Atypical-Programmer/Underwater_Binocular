@@ -24,11 +24,12 @@ adjustment with camera poses and frozen calibration fixed. This is a hard pose
 constraint; verify the INS-to-camera lever arm and time alignment before using
 it as physical ground truth.
 
-`reconstruction.metashape` converts COLMAP-style world-to-camera poses to local camera-to-world references and writes explicit `georeferenced=false` and scale-source metadata. `integrations/metashape/` contains import guidance. These coordinates are not GPS/geographic coordinates, and arbitrary SfM scale must not be presented as physical underwater scale.
+`reconstruction.metashape` converts COLMAP-style world-to-camera poses to local camera-to-world references and writes explicit `georeferenced=false` and scale-source metadata. `scripts/export_sfm_projects_for_metashape.py` packages every selected SFM project as Metashape XML, Reference CSV, and PLY artifacts, with `integrations/metashape/` containing import guidance. These coordinates are not GPS/geographic coordinates, and arbitrary SfM scale must not be presented as physical underwater scale.
 
 Ordinary COLMAP reconstruction scale is arbitrary/local unless an actual valid
 scale constraint is supplied. The calibrated-stereo planar path supplies the
 canonical stereo baseline, so its model scale is metric relative to that
 calibration; this does not by itself establish absolute underwater physical
-accuracy. Metashape conversion remains a library/export boundary and external
-GUI import is separate.
+accuracy. Metashape XML/CSV/PLY generation is automated, while opening the
+generated package and any subsequent alignment/optimization remain external
+GUI steps.

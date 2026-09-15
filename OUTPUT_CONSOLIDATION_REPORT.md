@@ -49,6 +49,15 @@
 | `sfm/sfm__custom__aliked_adalam__100f__reference` | `complete` | 100 图；99 接受/验证对；100 registered images；12,887 points3D | 次级复现参考 |
 | `sfm/sfm__custom__aliked_adalam_colmap__20f__diagnostic` | `completed` | 40 图；32,000 keypoints；128 对；128 verified geometries；2 registered images；575 points3D；模型已转 TXT | 外部 COLMAP 兼容性审计，非生产重建 |
 
+### Metashape 导入包
+
+上述 5 个 SFM project 均已生成 `export/metashape/`，其中包含
+`metashape_cameras.xml`、YPR/OPK 参考 CSV、`points3D.ply`、图像清单和
+原始 COLMAP 文本模型副本。XML 均由本机 Metashape Professional 1.7.4
+生成；2 个小 project（100f reference、20f diagnostic）通过了 headless
+round-trip，相机数较大的 3 个 project 因 Metashape 1.7.4 的 headless
+回读限制只进行 XML 生成检查，manifest 中已明确记录。
+
 > 注：历史普通增量主/次级 SfM 的 local scale 未经过外部 metric 约束；当前 `1000f__PRIMARY` 使用 canonical stereo baseline，因此仅对该模型记录“相对标定的 metric scale”。
 
 > `sfm/sfm__custom__aliked_adalam__1000f__H5_CONSTRAINED` 已按用户要求移入 Windows 回收站，因重建结果无效而不再作为当前输出保留。`PRIMARY`、H5 原始文件以及 H5 约束代码仍保留。

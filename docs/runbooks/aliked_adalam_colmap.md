@@ -248,9 +248,34 @@ outputs/<dataset>/sfm/<run-id>/
         sparse/
         model_summary.json
     export/
+        metashape/
+            metashape_cameras.xml
+            metashape_reference_ypr.csv
+            metashape_reference_opk.csv
+            points3D.ply
+            image_list.txt
+            colmap_model/
 ```
 
 `run.json` records dataset/SVO identity, frame selection, left/right usage, ALIKED and AdaLAM configuration, pair policy, calibration path/hash and frozen/refined mode, COLMAP executable, dependency versions, CUDA/device, and Git SHA. `summary.json` reports feature counts, candidate/matched pairs, match statistics, and real mapper counts when the mapper ran; values such as registered images and points are `null` when COLMAP was intentionally skipped.
+
+## Metashape export
+
+After a project has a complete COLMAP text model, export every project under a
+dataset with:
+
+```powershell
+conda run -n cv python scripts/export_sfm_projects_for_metashape.py `
+  --sfm-root outputs/20260802_150233/sfm
+```
+
+Each project writes `export/metashape/`. The generated XML contains camera
+poses and a legacy-compatible calibration; the YPR/OPK CSV files are fallback
+Reference-pane imports, and `points3D.ply` is the sparse point-cloud import.
+Projects whose extracted images were removed can use `--fallback-images` to
+resolve the image names from another verified image cache. The exporter records
+that source in `metashape_export_manifest.json`. Keep these local coordinates
+non-georeferenced and do not treat the PLY as a dense cloud.
 
 ## Scale and scientific limitations
 
